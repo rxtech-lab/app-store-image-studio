@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type Konva from "konva";
-import { exportZip } from "@/actions/export";
+import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, FileArchive } from "lucide-react";
 
@@ -44,14 +44,13 @@ export function ExportPanel({
       const scale = stage.scaleX();
       const pixelRatio = 1 / scale;
       const dataUrl = stage.toDataURL({ pixelRatio });
-      // Remove the data URL prefix
       const base64 = dataUrl.split(",")[1];
 
-      const zipBuffer = await exportZip([
-        { filename: `${projectName}.png`, base64 },
-      ]);
+      const zip = new JSZip();
+      zip.file(`${projectName}.png`, base64, { base64: true });
+      const zipBuffer = await zip.generateAsync({ type: "uint8array" });
 
-      const blob = new Blob([new Uint8Array(zipBuffer)], { type: "application/zip" });
+      const blob = new Blob([zipBuffer], { type: "application/zip" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.download = `${projectName}-images.zip`;

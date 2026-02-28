@@ -35,7 +35,7 @@ export function useAutoSave(
     try {
       await saveCanvasState(templateId, savedState);
       if (stageRef?.current) {
-        const dataUrl = stageRef.current.toDataURL({ pixelRatio: 0.3 });
+        const dataUrl = stageRef.current.toDataURL({ pixelRatio: 0.7 });
         const url = await saveTemplateThumbnail(templateId, dataUrl);
         onThumbnailSavedRef.current?.(templateId, url);
       }
