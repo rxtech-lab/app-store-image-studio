@@ -259,6 +259,7 @@ export function SectionEditorClient({
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 stageRef={stageRef}
+                screenshots={screenshots}
               />
               {/* Floating element properties */}
               {selectedElement && (

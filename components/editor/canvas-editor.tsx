@@ -21,12 +21,19 @@ import type {
   CanvasAction,
 } from "@/lib/canvas/types";
 
+interface Screenshot {
+  id: string;
+  imageUrl: string;
+  originalFilename: string;
+}
+
 interface CanvasEditorProps {
   state: CanvasState;
   dispatch: React.Dispatch<CanvasAction>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
+  screenshots?: Screenshot[];
 }
 
 function useContainerSize() {
@@ -73,11 +80,13 @@ function ScreenshotNode({
   isSelected,
   onSelect,
   onChange,
+  onContextMenu,
 }: {
   el: ScreenshotElement;
   isSelected: boolean;
   onSelect: () => void;
   onChange: (attrs: Partial<ScreenshotElement>) => void;
+  onContextMenu?: (e: Konva.KonvaEventObject<PointerEvent>) => void;
 }) {
   const shapeRef = useRef<Konva.Image>(null);
   const trRef = useRef<Konva.Transformer>(null);
@@ -109,6 +118,7 @@ function ScreenshotNode({
         draggable
         onClick={onSelect}
         onTap={onSelect}
+        onContextMenu={onContextMenu}
         onDragEnd={(e) => {
           onChange({ x: e.target.x(), y: e.target.y() });
         }}
@@ -401,15 +411,76 @@ function AccentNode({
   );
 }
 
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  elementId: string;
+}
+
 export function CanvasEditor({
   state,
   dispatch,
   selectedId,
   onSelect,
   stageRef,
+  screenshots = [],
 }: CanvasEditorProps) {
   const bgImage = useImage(state.backgroundImageUrl);
   const { containerRef, size: containerSize } = useContainerSize();
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close context menu on outside click or scroll
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClose = () => setContextMenu(null);
+    window.addEventListener("click", handleClose);
+    window.addEventListener("scroll", handleClose, true);
+    return () => {
+      window.removeEventListener("click", handleClose);
+      window.removeEventListener("scroll", handleClose, true);
+    };
+  }, [contextMenu]);
+
+  const handleScreenshotContextMenu = useCallback(
+    (elementId: string, e: Konva.KonvaEventObject<PointerEvent>) => {
+      e.evt.preventDefault();
+      if (screenshots.length === 0) return;
+
+      // Get the container's bounding rect to position the menu
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const x = e.evt.clientX - rect.left;
+      const y = e.evt.clientY - rect.top;
+
+      onSelect(elementId);
+      setContextMenu({ visible: true, x, y, elementId });
+    },
+    [screenshots, containerRef, onSelect],
+  );
+
+  const handleReplaceScreenshot = useCallback(
+    (imageUrl: string) => {
+      if (!contextMenu) return;
+      const img = new window.Image();
+      img.src = imageUrl;
+      img.onload = () => {
+        dispatch({
+          type: "UPDATE_ELEMENT",
+          payload: {
+            id: contextMenu.elementId,
+            imageUrl,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          },
+        });
+      };
+      setContextMenu(null);
+    },
+    [contextMenu, dispatch],
+  );
 
   // Padding inside the container
   const padding = 32;
@@ -440,7 +511,7 @@ export function CanvasEditor({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full flex items-center justify-center"
+      className="w-full h-full flex items-center justify-center relative"
     >
       <div
         className="border rounded-lg overflow-hidden bg-muted inline-block"
@@ -488,6 +559,9 @@ export function CanvasEditor({
                       isSelected={selectedId === el.id}
                       onSelect={() => onSelect(el.id)}
                       onChange={(attrs) => handleChange(el.id, attrs)}
+                      onContextMenu={(e) =>
+                        handleScreenshotContextMenu(el.id, e)
+                      }
                     />
                   );
                 case "text":
@@ -525,6 +599,41 @@ export function CanvasEditor({
           </Layer>
         </Stage>
       </div>
+
+      {/* Screenshot context menu */}
+      {contextMenu && contextMenu.visible && screenshots.length > 0 && (
+        <div
+          ref={menuRef}
+          className="absolute z-50 min-w-50 max-w-70 max-h-80 overflow-y-auto rounded-lg border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            Replace screenshot
+          </div>
+          {screenshots.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm hover:bg-accent cursor-pointer transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReplaceScreenshot(s.imageUrl);
+              }}
+            >
+              <div className="w-8 h-14 rounded border overflow-hidden bg-muted shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={s.imageUrl}
+                  alt={s.originalFilename}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="truncate text-xs">{s.originalFilename}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
