@@ -47,7 +47,7 @@ export function TemplateStrip({
       const t = await createTemplate(
         sectionId,
         presetKey,
-        `Template ${templates.length + 1}`
+        `Template ${templates.length + 1}`,
       );
       const newTemplates = [...templates, t as unknown as Template];
       onTemplatesChange(newTemplates);
@@ -69,7 +69,7 @@ export function TemplateStrip({
   const handleRename = async (templateId: string, name: string) => {
     await updateTemplateName(templateId, name);
     onTemplatesChange(
-      templates.map((t) => (t.id === templateId ? { ...t, name } : t))
+      templates.map((t) => (t.id === templateId ? { ...t, name } : t)),
     );
   };
 
@@ -93,7 +93,7 @@ export function TemplateStrip({
               }}
               className={cn(
                 "relative group shrink-0 w-28 cursor-pointer",
-                "rounded-xl p-1.5"
+                "rounded-xl p-1.5",
               )}
               onClick={() => onSelect(t)}
             >
@@ -136,19 +136,18 @@ export function TemplateStrip({
               />
 
               {/* Delete */}
-              <AnimatePresence>
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  whileHover={{ scale: 1.15 }}
-                  className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
+              <motion.button
+                whileHover={{ scale: 1.15 }}
+                className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm transition-opacity"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Delete "${t.name}"?`)) {
                     handleDelete(t.id);
-                  }}
-                >
-                  <Trash2 className="h-2.5 w-2.5" />
-                </motion.button>
-              </AnimatePresence>
+                  }
+                }}
+              >
+                <Trash2 className="h-2.5 w-2.5 text-white" />
+              </motion.button>
             </motion.div>
           ))}
         </AnimatePresence>
@@ -163,7 +162,7 @@ export function TemplateStrip({
             "shrink-0 w-28 rounded-xl border-2 border-dashed border-muted-foreground/20",
             "flex items-center justify-center cursor-pointer",
             "hover:bg-accent/40",
-            "disabled:opacity-40 disabled:cursor-not-allowed"
+            "disabled:opacity-40 disabled:cursor-not-allowed",
           )}
           style={{ aspectRatio: "9/16", padding: "0.375rem" }}
           onClick={handleCreate}

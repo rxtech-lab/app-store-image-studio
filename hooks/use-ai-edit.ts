@@ -23,6 +23,7 @@ interface UseAiEditOptions {
   stageRef: React.RefObject<Konva.Stage | null>;
   screenshots: AvailableScreenshot[];
   projectDescription?: string;
+  onComplete?: () => void;
 }
 
 // Extract output from a completed tool part (state: "output-available")
@@ -42,10 +43,13 @@ export function useAiEdit({
   stageRef,
   screenshots,
   projectDescription,
+  onComplete,
 }: UseAiEditOptions) {
   const processedToolCalls = useRef(new Set<string>());
   const canvasStateRef = useRef(canvasState);
   canvasStateRef.current = canvasState;
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   const [statusLog, setStatusLog] = useState<string[]>([]);
 
@@ -133,6 +137,17 @@ export function useAiEdit({
   }, [stop]);
 
   const isLoading = status === "submitted" || status === "streaming";
+  const wasLoadingRef = useRef(false);
+  useEffect(() => {
+    if (
+      wasLoadingRef.current &&
+      !isLoading &&
+      processedToolCalls.current.size > 0
+    ) {
+      onCompleteRef.current?.();
+    }
+    wasLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   // Build display text from accumulated status log
   const statusText =

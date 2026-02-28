@@ -2,9 +2,12 @@ import { put, del } from "@vercel/blob";
 
 export async function uploadBlob(
   file: File,
-  pathname: string
+  pathname: string,
 ): Promise<string> {
-  const blob = await put(pathname, file, { access: "public" });
+  const blob = await put(pathname, file, {
+    access: "public",
+    allowOverwrite: true,
+  });
   return blob.url;
 }
 

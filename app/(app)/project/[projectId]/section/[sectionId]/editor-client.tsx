@@ -71,6 +71,28 @@ export function SectionEditorClient({
   const { state, dispatch, undo, addText, addAccent, addScreenshot } =
     useCanvasState(activeTemplate?.canvasState ?? defaultState);
 
+  const handleThumbnailSaved = (templateId: string, url: string) => {
+    setTemplates((prev) =>
+      prev.map((t) => (t.id === templateId ? { ...t, thumbnailUrl: url } : t)),
+    );
+  };
+
+  const handleStateSaved = (templateId: string, savedState: CanvasState) => {
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === templateId ? { ...t, canvasState: savedState } : t,
+      ),
+    );
+  };
+
+  const { isSaving, isSaved, saveNow } = useAutoSave(
+    activeTemplate?.id ?? "",
+    state,
+    stageRef,
+    handleThumbnailSaved,
+    handleStateSaved,
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -80,7 +102,10 @@ export function SectionEditorClient({
         target.isContentEditable;
       if (isEditing) return;
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        saveNow();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         undo();
       } else if (e.key === "Backspace" || e.key === "Delete") {
@@ -94,7 +119,7 @@ export function SectionEditorClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, undo, dispatch]);
+  }, [selectedId, undo, dispatch, saveNow]);
 
   const {
     sendEdit,
@@ -107,9 +132,8 @@ export function SectionEditorClient({
     stageRef,
     screenshots,
     projectDescription,
+    onComplete: saveNow,
   });
-
-  const { isSaving } = useAutoSave(activeTemplate?.id ?? "", state);
 
   const selectedElement =
     state.elements.find((el) => el.id === selectedId) ?? null;
@@ -133,12 +157,14 @@ export function SectionEditorClient({
           </Link>
         </Button>
         <span className="text-sm font-medium truncate">{projectName}</span>
-        {isSaving && (
+        {isSaving ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
             <Loader2 className="h-3 w-3 animate-spin" />
             Saving...
           </span>
-        )}
+        ) : isSaved ? (
+          <span className="text-xs text-muted-foreground ml-2">Saved</span>
+        ) : null}
       </header>
 
       {/* Template strip */}

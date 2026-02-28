@@ -73,10 +73,6 @@ export async function POST(req: Request) {
     messages,
     toolChoice: isFollowUp ? "auto" : "required",
     stopWhen: stepCountIs(20),
-    providerOptions: {
-      google: { thinkingConfig: { thinkingBudget: 0 } },
-      vertex: { thinkingConfig: { thinkingBudget: 0 } },
-    },
     tools: {
       setBackgroundColor: tool({
         description: "Set the canvas background to a solid color",

@@ -133,24 +133,6 @@ function TextNode({
     }
   }, [isSelected]);
 
-  console.log("[TextNode]", el.id, {
-    text: el.text,
-    fontSize: el.fontSize,
-    fontFamily: el.fontFamily,
-    fontWeight: el.fontWeight,
-    fontStyle: el.fontStyle,
-    fill: el.fill,
-    align: el.align,
-    lineHeight: el.lineHeight,
-    x: el.x,
-    y: el.y,
-    width: el.width,
-    height: el.height,
-    rotation: el.rotation,
-    allKeys: Object.keys(el),
-    raw: JSON.stringify(el),
-  });
-
   return (
     <>
       <Text
@@ -160,7 +142,10 @@ function TextNode({
         fontFamily={el.fontFamily}
         fontStyle={
           [
-            el.fontWeight && el.fontWeight !== "normal" && el.fontWeight !== "regular" && el.fontWeight !== "400"
+            el.fontWeight &&
+            el.fontWeight !== "normal" &&
+            el.fontWeight !== "regular" &&
+            el.fontWeight !== "400"
               ? el.fontWeight
               : "",
             el.fontStyle && el.fontStyle !== "normal" ? el.fontStyle : "",

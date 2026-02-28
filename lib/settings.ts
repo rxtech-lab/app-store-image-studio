@@ -36,5 +36,5 @@ export type PresetKey = keyof typeof IMAGE_PRESETS;
 export const AI_CONFIG = {
   backgroundModel: "google/gemini-3.1-flash-image-preview",
   textModel: "google/gemini-3.1-flash-image-preview",
-  editModel: "google/gemini-3.1-pro-preview",
+  editModel: "minimax/minimax-m2.5",
 } as const;
