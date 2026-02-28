@@ -4,6 +4,8 @@ import { useChat } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithToolCalls,
+  isToolUIPart,
+  getToolName,
 } from "ai";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { CanvasState, CanvasAction } from "@/lib/canvas/types";
@@ -11,6 +13,17 @@ import type { CanvasState, CanvasAction } from "@/lib/canvas/types";
 interface UseAiEditOptions {
   canvasState: CanvasState;
   dispatch: React.Dispatch<CanvasAction>;
+}
+
+// Extract output from a completed tool part (state: "output-available")
+function getToolOutput(
+  part: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (part.state !== "output-available") return null;
+  const raw = part.output;
+  return raw && typeof raw === "object"
+    ? (raw as Record<string, unknown>)
+    : null;
 }
 
 export function useAiEdit({ canvasState, dispatch }: UseAiEditOptions) {
@@ -41,30 +54,26 @@ export function useAiEdit({ canvasState, dispatch }: UseAiEditOptions) {
     for (const message of messages) {
       if (message.role !== "assistant") continue;
       for (const part of message.parts) {
-        if (part.type === "dynamic-tool") {
-          const name = toolDisplayName(part.toolName);
+        if (isToolUIPart(part)) {
+          const toolName = getToolName(part);
+          const name = toolDisplayName(toolName);
+          const output = getToolOutput(part as Record<string, unknown>);
 
-          // Dispatch tool results
-          if (
-            part.state === "output-available" &&
-            !processedToolCalls.current.has(part.toolCallId)
-          ) {
+          if (output && !processedToolCalls.current.has(part.toolCallId)) {
             processedToolCalls.current.add(part.toolCallId);
-            dispatchToolResult(
-              part.toolName,
-              part.output as Record<string, unknown>,
-              dispatch
-            );
+            dispatchToolResult(toolName, output, dispatch);
           }
 
-          // Build status
-          if (part.state === "input-streaming" || part.state === "input-available") {
-            newLogs.push(`${name}...`);
-          } else if (part.state === "output-available") {
-            newLogs.push(name);
-          }
-        } else if (part.type === "text" && part.text) {
-          newLogs.push(part.text);
+          newLogs.push(output ? name : `${name}...`);
+        } else if (
+          typeof part === "object" &&
+          part !== null &&
+          "type" in part &&
+          (part as { type: string }).type === "text" &&
+          "text" in part
+        ) {
+          const text = (part as { text: string }).text;
+          if (text) newLogs.push(text);
         }
       }
     }
@@ -87,9 +96,10 @@ export function useAiEdit({ canvasState, dispatch }: UseAiEditOptions) {
   const isLoading = status === "submitted" || status === "streaming";
 
   // Build display text from accumulated status log
-  const statusText = isLoading && statusLog.length === 0
-    ? "Thinking..."
-    : statusLog.join(" → ");
+  const statusText =
+    isLoading && statusLog.length === 0
+      ? "Thinking..."
+      : statusLog.join(" → ");
 
   return {
     sendEdit,
