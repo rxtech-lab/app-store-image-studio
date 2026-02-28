@@ -33,6 +33,16 @@ export function TextControls({ element, onChange }: TextControlsProps) {
   return (
     <div className="space-y-3">
       <div className="space-y-1">
+        <Label className="text-xs">Text Content</Label>
+        <textarea
+          value={element.text}
+          onChange={(e) => onChange({ text: e.target.value })}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none min-h-15"
+          rows={2}
+        />
+      </div>
+
+      <div className="space-y-1">
         <Label className="text-xs">Font Family</Label>
         <Select
           value={element.fontFamily}

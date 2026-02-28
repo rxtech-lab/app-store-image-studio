@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import type { CanvasState } from "@/lib/canvas/types";
 import { getDefaultCanvasState } from "@/lib/canvas/defaults";
 import type { PresetKey } from "@/lib/settings";
+import { uploadBlob } from "@/lib/blob";
 
 export async function createTemplate(
   sectionId: string,
@@ -98,6 +99,20 @@ export async function deleteTemplate(
 
   await db.delete(templates).where(eq(templates.id, templateId));
   revalidatePath(`/project/${projectId}/section/${sectionId}`);
+}
+
+export async function uploadBackgroundImage(formData: FormData): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const file = formData.get("file") as File;
+  if (!file) throw new Error("No file provided");
+
+  const url = await uploadBlob(
+    file,
+    `backgrounds/${session.user.id}/${nanoid()}-${file.name}`
+  );
+  return url;
 }
 
 export async function toggleTemplateSelected(

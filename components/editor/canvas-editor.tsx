@@ -1,7 +1,15 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-import { Stage, Layer, Rect, Circle, Text, Image, Transformer } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Rect,
+  Circle,
+  Text,
+  Image,
+  Transformer,
+} from "react-konva";
 import type Konva from "konva";
 import type {
   CanvasState,
@@ -9,6 +17,7 @@ import type {
   ScreenshotElement,
   TextElement,
   AccentElement,
+  ImageElement,
   CanvasAction,
 } from "@/lib/canvas/types";
 
@@ -124,6 +133,24 @@ function TextNode({
     }
   }, [isSelected]);
 
+  console.log("[TextNode]", el.id, {
+    text: el.text,
+    fontSize: el.fontSize,
+    fontFamily: el.fontFamily,
+    fontWeight: el.fontWeight,
+    fontStyle: el.fontStyle,
+    fill: el.fill,
+    align: el.align,
+    lineHeight: el.lineHeight,
+    x: el.x,
+    y: el.y,
+    width: el.width,
+    height: el.height,
+    rotation: el.rotation,
+    allKeys: Object.keys(el),
+    raw: JSON.stringify(el),
+  });
+
   return (
     <>
       <Text
@@ -132,7 +159,14 @@ function TextNode({
         fontSize={el.fontSize}
         fontFamily={el.fontFamily}
         fontStyle={
-          `${el.fontWeight} ${el.fontStyle}`.trim() || "normal"
+          [
+            el.fontWeight && el.fontWeight !== "normal" && el.fontWeight !== "regular" && el.fontWeight !== "400"
+              ? el.fontWeight
+              : "",
+            el.fontStyle && el.fontStyle !== "normal" ? el.fontStyle : "",
+          ]
+            .filter(Boolean)
+            .join(" ") || "normal"
         }
         fill={el.fill}
         align={el.align}
@@ -163,21 +197,22 @@ function TextNode({
           // Enable inline text editing
           const textNode = shapeRef.current!;
           const stage = textNode.getStage()!;
-          const container = stage.container();
+          const content = stage.getContent();
           const textPosition = textNode.absolutePosition();
-          const stageBox = container.getBoundingClientRect();
           const scale = stage.scaleX();
 
           const textarea = document.createElement("textarea");
-          container.appendChild(textarea);
+          content.appendChild(textarea);
 
           textarea.value = el.text;
           textarea.style.position = "absolute";
-          textarea.style.top = `${stageBox.top + textPosition.y * scale}px`;
-          textarea.style.left = `${stageBox.left + textPosition.x * scale}px`;
+          textarea.style.top = `${textPosition.y}px`;
+          textarea.style.left = `${textPosition.x}px`;
           textarea.style.width = `${textNode.width() * scale}px`;
+          textarea.style.minHeight = `${textNode.height() * scale}px`;
           textarea.style.fontSize = `${el.fontSize * scale}px`;
-          textarea.style.border = "none";
+          textarea.style.border = "2px solid #3b82f6";
+          textarea.style.borderRadius = "2px";
           textarea.style.padding = "0px";
           textarea.style.margin = "0px";
           textarea.style.overflow = "hidden";
@@ -186,6 +221,8 @@ function TextNode({
           textarea.style.resize = "none";
           textarea.style.color = el.fill;
           textarea.style.fontFamily = el.fontFamily;
+          textarea.style.fontWeight = el.fontWeight ?? "normal";
+          textarea.style.fontStyle = el.fontStyle ?? "normal";
           textarea.style.zIndex = "1000";
           textarea.style.lineHeight = String(el.lineHeight);
           textarea.style.textAlign = el.align;
@@ -212,19 +249,78 @@ function TextNode({
               window.removeEventListener("click", handleOutsideClick);
             }
           });
-          setTimeout(() => window.addEventListener("click", handleOutsideClick));
+          setTimeout(() =>
+            window.addEventListener("click", handleOutsideClick),
+          );
         }}
       />
       {isSelected && (
         <Transformer
           ref={trRef}
           rotateEnabled
-          enabledAnchors={[
-            "middle-left",
-            "middle-right",
-          ]}
+          enabledAnchors={["middle-left", "middle-right"]}
         />
       )}
+    </>
+  );
+}
+
+function ImageNode({
+  el,
+  isSelected,
+  onSelect,
+  onChange,
+}: {
+  el: ImageElement;
+  isSelected: boolean;
+  onSelect: () => void;
+  onChange: (attrs: Partial<ImageElement>) => void;
+}) {
+  const shapeRef = useRef<Konva.Image>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+  const image = useImage(el.imageUrl);
+
+  useEffect(() => {
+    if (isSelected && trRef.current && shapeRef.current) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer()?.batchDraw();
+    }
+  }, [isSelected]);
+
+  return (
+    <>
+      <Image
+        ref={shapeRef}
+        image={image ?? undefined}
+        x={el.x}
+        y={el.y}
+        width={el.width}
+        height={el.height}
+        rotation={el.rotation}
+        opacity={el.opacity}
+        cornerRadius={el.cornerRadius}
+        draggable
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => {
+          onChange({ x: e.target.x(), y: e.target.y() });
+        }}
+        onTransformEnd={() => {
+          const node = shapeRef.current!;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(20, node.width() * scaleX),
+            height: Math.max(20, node.height() * scaleY),
+            rotation: node.rotation(),
+          });
+        }}
+      />
+      {isSelected && <Transformer ref={trRef} rotateEnabled />}
     </>
   );
 }
@@ -312,17 +408,19 @@ export function CanvasEditor({
   const scale = Math.min(
     MAX_EDITOR_WIDTH / state.width,
     MAX_EDITOR_HEIGHT / state.height,
-    1
+    1,
   );
 
   const handleChange = useCallback(
     (id: string, attrs: Partial<CanvasElement>) => {
       dispatch({ type: "UPDATE_ELEMENT", payload: { id, ...attrs } });
     },
-    [dispatch]
+    [dispatch],
   );
 
-  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+  const handleStageClick = (
+    e: Konva.KonvaEventObject<MouseEvent | TouchEvent>,
+  ) => {
     if (e.target === e.target.getStage()) {
       onSelect(null);
     }
@@ -390,6 +488,16 @@ export function CanvasEditor({
               case "accent":
                 return (
                   <AccentNode
+                    key={el.id}
+                    el={el}
+                    isSelected={selectedId === el.id}
+                    onSelect={() => onSelect(el.id)}
+                    onChange={(attrs) => handleChange(el.id, attrs)}
+                  />
+                );
+              case "image":
+                return (
+                  <ImageNode
                     key={el.id}
                     el={el}
                     isSelected={selectedId === el.id}

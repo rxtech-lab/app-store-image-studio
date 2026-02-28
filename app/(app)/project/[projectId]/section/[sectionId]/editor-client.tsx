@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type Konva from "konva";
 import type { PresetKey } from "@/lib/settings";
 import type { CanvasState } from "@/lib/canvas/types";
@@ -13,15 +14,17 @@ import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
 import { ElementProperties } from "@/components/editor/element-properties";
 import { TemplateStrip } from "@/components/editor/template-strip";
 import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
+import { LayersPanel } from "@/components/editor/layers-panel";
 import { ExportButtons } from "@/components/editor/export-buttons";
-import { IMAGE_PRESETS } from "@/lib/settings";
 import { Button } from "@/components/ui/button";
-import { ImageIcon } from "lucide-react";
+import { IMAGE_PRESETS } from "@/lib/settings";
+import { ScreenshotsDialog } from "@/components/editor/screenshots-dialog";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 const CanvasEditor = dynamic(
   () =>
     import("@/components/editor/canvas-editor").then((mod) => mod.CanvasEditor),
-  { ssr: false }
+  { ssr: false },
 );
 
 interface Template {
@@ -40,6 +43,7 @@ interface Screenshot {
 interface SectionEditorClientProps {
   projectId: string;
   projectName: string;
+  projectDescription?: string;
   sectionId: string;
   presetKey: PresetKey;
   initialTemplates: Template[];
@@ -49,6 +53,7 @@ interface SectionEditorClientProps {
 export function SectionEditorClient({
   projectId,
   projectName,
+  projectDescription,
   sectionId,
   presetKey,
   initialTemplates,
@@ -56,22 +61,55 @@ export function SectionEditorClient({
 }: SectionEditorClientProps) {
   const [templates, setTemplates] = useState(initialTemplates);
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(
-    templates[0] ?? null
+    templates[0] ?? null,
   );
   const stageRef = useRef<Konva.Stage | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showLayers, setShowLayers] = useState(true);
 
   const defaultState = getDefaultCanvasState(presetKey);
-  const { state, dispatch, addText, addAccent, addScreenshot } =
+  const { state, dispatch, undo, addText, addAccent, addScreenshot } =
     useCanvasState(activeTemplate?.canvasState ?? defaultState);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isEditing =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+      if (isEditing) return;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        undo();
+      } else if (e.key === "Backspace" || e.key === "Delete") {
+        if (selectedId) {
+          e.preventDefault();
+          dispatch({ type: "REMOVE_ELEMENT", payload: selectedId });
+          setSelectedId(null);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedId, undo, dispatch]);
 
   const {
     sendEdit,
+    stopEdit,
     isLoading: aiLoading,
     statusText,
-  } = useAiEdit({ canvasState: state, dispatch });
+  } = useAiEdit({
+    canvasState: state,
+    dispatch,
+    stageRef,
+    screenshots,
+    projectDescription,
+  });
 
-  useAutoSave(activeTemplate?.id ?? "", state);
+  const { isSaving } = useAutoSave(activeTemplate?.id ?? "", state);
 
   const selectedElement =
     state.elements.find((el) => el.id === selectedId) ?? null;
@@ -79,13 +117,30 @@ export function SectionEditorClient({
 
   const handleTemplateSelect = (template: Template) => {
     setActiveTemplate(template);
-    const canvasState = template.canvasState ?? getDefaultCanvasState(presetKey);
+    const canvasState =
+      template.canvasState ?? getDefaultCanvasState(presetKey);
     dispatch({ type: "SET_STATE", payload: canvasState });
     setSelectedId(null);
   };
 
   return (
     <div className="flex flex-col h-full">
+      {/* Site header */}
+      <header className="flex items-center gap-3 border-b px-4 h-12 shrink-0">
+        <Button variant="ghost" size="icon-xs" asChild>
+          <Link href={`/project/${projectId}`}>
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <span className="text-sm font-medium truncate">{projectName}</span>
+        {isSaving && (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving...
+          </span>
+        )}
+      </header>
+
       {/* Template strip */}
       <TemplateStrip
         templates={templates}
@@ -110,34 +165,26 @@ export function SectionEditorClient({
               onBackgroundColorChange={(c) =>
                 dispatch({ type: "SET_BACKGROUND_COLOR", payload: c })
               }
+              backgroundImageUrl={state.backgroundImageUrl}
+              onRemoveBackgroundImage={() =>
+                dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" })
+              }
+              onSetBackgroundImage={(url) =>
+                dispatch({ type: "SET_BACKGROUND_IMAGE", payload: url })
+              }
               onAddText={addText}
               onAddAccent={addAccent}
+              showLayers={showLayers}
+              onToggleLayers={() => setShowLayers((v) => !v)}
             />
             <div className="w-px h-5 bg-border" />
-            {/* Screenshot buttons inline */}
+            {/* Screenshots dialog */}
             {screenshots.length > 0 && (
               <>
-                {screenshots.map((s) => (
-                  <Button
-                    key={s.id}
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs shrink-0"
-                    onClick={() => {
-                      const img = new window.Image();
-                      img.src = s.imageUrl;
-                      img.onload = () =>
-                        addScreenshot(
-                          s.imageUrl,
-                          img.naturalWidth,
-                          img.naturalHeight
-                        );
-                    }}
-                  >
-                    <ImageIcon className="mr-1 h-3 w-3" />
-                    {s.originalFilename}
-                  </Button>
-                ))}
+                <ScreenshotsDialog
+                  screenshots={screenshots}
+                  onAdd={addScreenshot}
+                />
                 <div className="w-px h-5 bg-border" />
               </>
             )}
@@ -151,30 +198,47 @@ export function SectionEditorClient({
           </div>
 
           {/* Canvas area */}
-          <div className="flex-1 flex items-center justify-center relative overflow-auto bg-muted/30 p-4">
-            <CanvasEditor
-              state={state}
-              dispatch={dispatch}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              stageRef={stageRef}
-            />
-            {/* Floating element properties */}
-            {selectedElement && (
-              <div className="absolute right-4 top-4 w-60 z-10">
-                <ElementProperties
-                  element={selectedElement}
-                  dispatch={dispatch}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Layers panel */}
+            {showLayers && (
+              <LayersPanel
+                elements={state.elements}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                dispatch={dispatch}
+                backgroundImageUrl={state.backgroundImageUrl}
+                onRemoveBackgroundImage={() =>
+                  dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" })
+                }
+              />
+            )}
+            {/* Canvas viewport */}
+            <div className="flex-1 flex items-center justify-center relative overflow-auto bg-muted/30 p-4">
+              <CanvasEditor
+                state={state}
+                dispatch={dispatch}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                stageRef={stageRef}
+              />
+              {/* Floating element properties */}
+              {selectedElement && (
+                <div className="absolute right-4 top-4 w-60 z-10">
+                  <ElementProperties
+                    element={selectedElement}
+                    dispatch={dispatch}
+                  />
+                </div>
+              )}
+              {/* AI Edit button/prompt at bottom center */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+                <AiPromptBar
+                  onSend={sendEdit}
+                  onStop={stopEdit}
+                  isLoading={aiLoading}
+                  statusText={statusText}
                 />
               </div>
-            )}
-            {/* AI Edit button/prompt at bottom center */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
-              <AiPromptBar
-                onSend={sendEdit}
-                isLoading={aiLoading}
-                statusText={statusText}
-              />
             </div>
           </div>
         </>

@@ -1,6 +1,7 @@
 export interface ScreenshotElement {
   id: string;
   type: "screenshot";
+  name?: string;
   imageUrl: string;
   x: number;
   y: number;
@@ -18,6 +19,7 @@ export interface ScreenshotElement {
 export interface TextElement {
   id: string;
   type: "text";
+  name?: string;
   text: string;
   fontSize: number;
   fontFamily: string;
@@ -36,6 +38,7 @@ export interface TextElement {
 export interface AccentElement {
   id: string;
   type: "accent";
+  name?: string;
   shape: "rect" | "circle" | "roundedRect";
   fill: string;
   cornerRadius: number;
@@ -46,7 +49,25 @@ export interface AccentElement {
   rotation: number;
 }
 
-export type CanvasElement = ScreenshotElement | TextElement | AccentElement;
+export interface ImageElement {
+  id: string;
+  type: "image";
+  name?: string;
+  imageUrl: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+  cornerRadius: number;
+}
+
+export type CanvasElement =
+  | ScreenshotElement
+  | TextElement
+  | AccentElement
+  | ImageElement;
 
 export interface CanvasState {
   width: number;
@@ -63,4 +84,9 @@ export type CanvasAction =
   | { type: "ADD_ELEMENT"; payload: CanvasElement }
   | { type: "UPDATE_ELEMENT"; payload: { id: string } & Partial<CanvasElement> }
   | { type: "REMOVE_ELEMENT"; payload: string }
-  | { type: "REORDER_ELEMENT"; payload: { id: string; direction: "up" | "down" } };
+  | {
+      type: "REORDER_ELEMENT";
+      payload: { id: string; direction: "up" | "down" };
+    }
+  | { type: "SET_ELEMENTS"; payload: CanvasElement[] }
+  | { type: "DUPLICATE_ELEMENT"; payload: string };

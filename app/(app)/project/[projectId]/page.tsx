@@ -3,6 +3,7 @@ import { listSections } from "@/actions/sections";
 import { SectionCard } from "@/components/project/section-card";
 import { CreateSectionDialog } from "@/components/project/create-section-dialog";
 import { ScreenshotUploader } from "@/components/project/screenshot-uploader";
+import { ProjectHeader } from "@/components/project/project-header";
 
 export default async function ProjectPage({
   params,
@@ -18,12 +19,11 @@ export default async function ProjectPage({
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">{project.name}</h1>
-          {project.description && (
-            <p className="text-muted-foreground mt-1">{project.description}</p>
-          )}
-        </div>
+        <ProjectHeader
+          projectId={projectId}
+          name={project.name}
+          description={project.description}
+        />
         <CreateSectionDialog projectId={projectId} />
       </div>
 

@@ -3,9 +3,6 @@ import { getSection } from "@/actions/sections";
 import { listTemplates } from "@/actions/templates";
 import { listScreenshots } from "@/actions/screenshots";
 import { SectionEditorClient } from "./editor-client";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { PresetKey } from "@/lib/settings";
 
 export default async function SectionEditorPage({
@@ -22,25 +19,14 @@ export default async function SectionEditorPage({
   ]);
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 border-b px-4 h-12 shrink-0">
-        <Button variant="ghost" size="icon-xs" asChild>
-          <Link href={`/project/${projectId}`}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <span className="text-sm font-medium truncate">{project.name}</span>
-      </header>
-      <div className="flex-1 min-h-0">
-        <SectionEditorClient
-          projectId={projectId}
-          projectName={project.name}
-          sectionId={sectionId}
-          presetKey={section.presetKey as PresetKey}
-          initialTemplates={templates}
-          screenshots={screenshots}
-        />
-      </div>
-    </div>
+    <SectionEditorClient
+      projectId={projectId}
+      projectName={project.name}
+      projectDescription={project.description ?? undefined}
+      sectionId={sectionId}
+      presetKey={section.presetKey as PresetKey}
+      initialTemplates={templates}
+      screenshots={screenshots}
+    />
   );
 }

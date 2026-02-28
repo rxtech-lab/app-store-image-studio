@@ -1,8 +1,14 @@
 "use client";
 
-import { useReducer, useCallback } from "react";
-import type { CanvasState, CanvasAction, CanvasElement } from "@/lib/canvas/types";
+import { useReducer, useCallback, useRef } from "react";
+import type {
+  CanvasState,
+  CanvasAction,
+  CanvasElement,
+} from "@/lib/canvas/types";
 import { nanoid } from "nanoid";
+
+const HISTORY_LIMIT = 50;
 
 function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
   switch (action.type) {
@@ -23,7 +29,7 @@ function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
       return {
         ...state,
         elements: state.elements.map((el) =>
-          el.id === id ? ({ ...el, ...updates } as CanvasElement) : el
+          el.id === id ? ({ ...el, ...updates } as CanvasElement) : el,
         ),
       };
     }
@@ -45,13 +51,53 @@ function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
       return { ...state, elements };
     }
 
+    case "SET_ELEMENTS":
+      return { ...state, elements: action.payload };
+
+    case "DUPLICATE_ELEMENT": {
+      const idx = state.elements.findIndex((el) => el.id === action.payload);
+      if (idx === -1) return state;
+      const original = state.elements[idx];
+      const clone = {
+        ...original,
+        id: nanoid(),
+        x: original.x + 20,
+        y: original.y + 20,
+        name: original.name ? `${original.name} (copy)` : undefined,
+      } as CanvasElement;
+      const elements = [...state.elements];
+      elements.splice(idx + 1, 0, clone);
+      return { ...state, elements };
+    }
+
     default:
       return state;
   }
 }
 
 export function useCanvasState(initialState: CanvasState) {
-  const [state, dispatch] = useReducer(canvasReducer, initialState);
+  const [state, rawDispatch] = useReducer(canvasReducer, initialState);
+  const historyRef = useRef<CanvasState[]>([]);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const dispatch = useCallback((action: CanvasAction) => {
+    // Don't record SET_STATE in history (used for template switching and undo itself)
+    if (action.type !== "SET_STATE") {
+      historyRef.current = [
+        ...historyRef.current.slice(-HISTORY_LIMIT + 1),
+        stateRef.current,
+      ];
+    }
+    rawDispatch(action);
+  }, []);
+
+  const undo = useCallback(() => {
+    if (historyRef.current.length === 0) return;
+    const previous = historyRef.current[historyRef.current.length - 1];
+    historyRef.current = historyRef.current.slice(0, -1);
+    rawDispatch({ type: "SET_STATE", payload: previous });
+  }, []);
 
   const addText = useCallback(() => {
     dispatch({
@@ -60,16 +106,16 @@ export function useCanvasState(initialState: CanvasState) {
         id: nanoid(),
         type: "text",
         text: "Your Text Here",
-        fontSize: 72,
+        fontSize: 100,
         fontFamily: "Arial",
         fontWeight: "bold",
         fontStyle: "normal",
         fill: "#ffffff",
         align: "center",
         lineHeight: 1.2,
-        x: state.width / 2 - 200,
+        x: state.width / 2 - state.width * 0.4,
         y: 100,
-        width: 400,
+        width: state.width * 0.8,
         height: 100,
         rotation: 0,
       },
@@ -94,7 +140,7 @@ export function useCanvasState(initialState: CanvasState) {
         },
       });
     },
-    [state.width, state.height]
+    [state.width, state.height],
   );
 
   const addScreenshot = useCallback(
@@ -126,12 +172,13 @@ export function useCanvasState(initialState: CanvasState) {
         },
       });
     },
-    [state.width, state.height]
+    [state.width, state.height],
   );
 
   return {
     state,
     dispatch,
+    undo,
     addText,
     addAccent,
     addScreenshot,

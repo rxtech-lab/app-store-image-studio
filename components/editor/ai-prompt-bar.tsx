@@ -2,16 +2,18 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, Send, X } from "lucide-react";
+import { Sparkles, Loader2, Send, Square, X } from "lucide-react";
 
 interface AiPromptBarProps {
   onSend: (prompt: string) => void;
+  onStop?: () => void;
   isLoading: boolean;
   statusText?: string;
 }
 
 export function AiPromptBar({
   onSend,
+  onStop,
   isLoading,
   statusText,
 }: AiPromptBarProps) {
@@ -32,10 +34,15 @@ export function AiPromptBar({
   };
 
   const handleClose = () => {
-    if (!isLoading) {
-      setExpanded(false);
-      setPrompt("");
+    if (isLoading) {
+      onStop?.();
     }
+    setExpanded(false);
+    setPrompt("");
+  };
+
+  const handleStop = () => {
+    onStop?.();
   };
 
   if (!expanded) {
@@ -79,24 +86,31 @@ export function AiPromptBar({
           className="flex-1 min-w-0 bg-transparent text-base outline-none placeholder:text-muted-foreground w-96"
           disabled={isLoading}
         />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={handleSubmit}
-          disabled={isLoading || !prompt.trim()}
-          className="h-8 w-8 shrink-0"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
+        {isLoading ? (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={handleStop}
+            className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+            title="Stop generation"
+          >
+            <Square className="h-4 w-4 fill-current" />
+          </Button>
+        ) : (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={handleSubmit}
+            disabled={!prompt.trim()}
+            className="h-8 w-8 shrink-0"
+          >
             <Send className="h-4 w-4" />
-          )}
-        </Button>
+          </Button>
+        )}
         <Button
           size="icon-sm"
           variant="ghost"
           onClick={handleClose}
-          disabled={isLoading}
           className="h-8 w-8 shrink-0"
         >
           <X className="h-4 w-4" />

@@ -16,7 +16,10 @@ interface ElementPropertiesProps {
   dispatch: React.Dispatch<CanvasAction>;
 }
 
-export function ElementProperties({ element, dispatch }: ElementPropertiesProps) {
+export function ElementProperties({
+  element,
+  dispatch,
+}: ElementPropertiesProps) {
   const update = (attrs: Partial<CanvasElement>) => {
     dispatch({ type: "UPDATE_ELEMENT", payload: { id: element.id, ...attrs } });
   };
@@ -138,6 +141,37 @@ export function ElementProperties({ element, dispatch }: ElementPropertiesProps)
             className="h-8"
             min={0}
           />
+        </div>
+      )}
+
+      {element.type === "image" && (
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Opacity</Label>
+            <Input
+              type="number"
+              value={element.opacity}
+              onChange={(e) =>
+                update({
+                  opacity: Math.min(1, Math.max(0, Number(e.target.value))),
+                })
+              }
+              className="h-8"
+              min={0}
+              max={1}
+              step={0.05}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Corner Radius</Label>
+            <Input
+              type="number"
+              value={element.cornerRadius}
+              onChange={(e) => update({ cornerRadius: Number(e.target.value) })}
+              className="h-8"
+              min={0}
+            />
+          </div>
         </div>
       )}
     </div>

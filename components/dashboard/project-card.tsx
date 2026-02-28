@@ -53,7 +53,15 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => deleteProject(project.id)}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Delete "${project.name}"? This will permanently remove the project and all its sections and templates.`,
+                    )
+                  ) {
+                    deleteProject(project.id);
+                  }
+                }}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete

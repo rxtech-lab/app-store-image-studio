@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { IMAGE_PRESETS, type PresetKey } from "@/lib/settings";
 import { deleteSection } from "@/actions/sections";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -62,7 +67,15 @@ export function SectionCard({ section }: SectionCardProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => deleteSection(section.id, section.projectId)}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Delete this "${presetTitle}" section? This cannot be undone.`,
+                    )
+                  ) {
+                    deleteSection(section.id, section.projectId);
+                  }
+                }}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
