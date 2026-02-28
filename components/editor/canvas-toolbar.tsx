@@ -8,7 +8,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Type, Square, Circle, RectangleHorizontal, Layers, ImageOff, ImagePlus, Loader2 } from "lucide-react";
+import {
+  Type,
+  Square,
+  Circle,
+  RectangleHorizontal,
+  Layers,
+  ImageOff,
+  ImagePlus,
+  Loader2,
+  LayoutTemplate,
+} from "lucide-react";
 import { uploadBackgroundImage } from "@/actions/templates";
 
 interface CanvasToolbarProps {
@@ -21,6 +31,8 @@ interface CanvasToolbarProps {
   onAddAccent: (shape: "rect" | "circle" | "roundedRect") => void;
   showLayers: boolean;
   onToggleLayers: () => void;
+  showTemplates?: boolean;
+  onToggleTemplates?: () => void;
 }
 
 export function CanvasToolbar({
@@ -33,6 +45,8 @@ export function CanvasToolbar({
   onAddAccent,
   showLayers,
   onToggleLayers,
+  showTemplates,
+  onToggleTemplates,
 }: CanvasToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -55,6 +69,22 @@ export function CanvasToolbar({
 
   return (
     <div className="flex items-center gap-1 shrink-0">
+      {onToggleTemplates && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={showTemplates ? "default" : "ghost"}
+                size="icon-xs"
+                onClick={onToggleTemplates}
+              >
+                <LayoutTemplate className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Toggle Templates</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -123,7 +153,9 @@ export function CanvasToolbar({
                 <ImageOff className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Remove Background Image</TooltipContent>
+            <TooltipContent side="bottom">
+              Remove Background Image
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       )}

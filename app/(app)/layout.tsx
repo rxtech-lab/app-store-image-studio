@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AppLayout } from "@/components/app-layout";
 
-export default async function AppLayout({
+export default async function AppRootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -13,10 +14,5 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  return (
-    <div className="flex h-screen">
-      <AppSidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
-    </div>
-  );
+  return <AppLayout sidebar={<AppSidebar />}>{children}</AppLayout>;
 }

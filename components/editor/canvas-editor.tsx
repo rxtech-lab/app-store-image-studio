@@ -29,9 +29,29 @@ interface CanvasEditorProps {
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
-// Scale stage to fit container
-const MAX_EDITOR_WIDTH = 800;
-const MAX_EDITOR_HEIGHT = 700;
+function useContainerSize() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 800, height: 700 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return { containerRef, size };
+}
 
 function useImage(url?: string) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -389,10 +409,16 @@ export function CanvasEditor({
   stageRef,
 }: CanvasEditorProps) {
   const bgImage = useImage(state.backgroundImageUrl);
+  const { containerRef, size: containerSize } = useContainerSize();
+
+  // Padding inside the container
+  const padding = 32;
+  const availableWidth = Math.max(100, containerSize.width - padding * 2);
+  const availableHeight = Math.max(100, containerSize.height - padding * 2);
 
   const scale = Math.min(
-    MAX_EDITOR_WIDTH / state.width,
-    MAX_EDITOR_HEIGHT / state.height,
+    availableWidth / state.width,
+    availableHeight / state.height,
     1,
   );
 
@@ -413,87 +439,92 @@ export function CanvasEditor({
 
   return (
     <div
-      className="border rounded-lg overflow-hidden bg-muted inline-block"
-      style={{
-        width: state.width * scale,
-        height: state.height * scale,
-      }}
+      ref={containerRef}
+      className="w-full h-full flex items-center justify-center"
     >
-      <Stage
-        ref={stageRef}
-        width={state.width * scale}
-        height={state.height * scale}
-        scaleX={scale}
-        scaleY={scale}
-        onClick={handleStageClick}
-        onTap={handleStageClick}
+      <div
+        className="border rounded-lg overflow-hidden bg-muted inline-block"
+        style={{
+          width: state.width * scale,
+          height: state.height * scale,
+        }}
       >
-        <Layer>
-          {/* Background */}
-          <Rect
-            x={0}
-            y={0}
-            width={state.width}
-            height={state.height}
-            fill={state.backgroundColor}
-          />
-          {bgImage && (
-            <Image
-              image={bgImage}
+        <Stage
+          ref={stageRef}
+          width={state.width * scale}
+          height={state.height * scale}
+          scaleX={scale}
+          scaleY={scale}
+          onClick={handleStageClick}
+          onTap={handleStageClick}
+        >
+          <Layer>
+            {/* Background */}
+            <Rect
               x={0}
               y={0}
               width={state.width}
               height={state.height}
+              fill={state.backgroundColor}
             />
-          )}
+            {bgImage && (
+              <Image
+                image={bgImage}
+                x={0}
+                y={0}
+                width={state.width}
+                height={state.height}
+              />
+            )}
 
-          {/* Elements */}
-          {state.elements.map((el) => {
-            switch (el.type) {
-              case "screenshot":
-                return (
-                  <ScreenshotNode
-                    key={el.id}
-                    el={el}
-                    isSelected={selectedId === el.id}
-                    onSelect={() => onSelect(el.id)}
-                    onChange={(attrs) => handleChange(el.id, attrs)}
-                  />
-                );
-              case "text":
-                return (
-                  <TextNode
-                    key={el.id}
-                    el={el}
-                    isSelected={selectedId === el.id}
-                    onSelect={() => onSelect(el.id)}
-                    onChange={(attrs) => handleChange(el.id, attrs)}
-                  />
-                );
-              case "accent":
-                return (
-                  <AccentNode
-                    key={el.id}
-                    el={el}
-                    isSelected={selectedId === el.id}
-                    onSelect={() => onSelect(el.id)}
-                    onChange={(attrs) => handleChange(el.id, attrs)}
-                  />
-                );
-              case "image":
-                return (
-                  <ImageNode
-                    key={el.id}
-                    el={el}
-                    isSelected={selectedId === el.id}
-                    onSelect={() => onSelect(el.id)}
-                    onChange={(attrs) => handleChange(el.id, attrs)}
-                  />
-                );
-            }
-          })}
-        </Layer>
-      </Stage>
+            {/* Elements */}
+            {state.elements.map((el) => {
+              switch (el.type) {
+                case "screenshot":
+                  return (
+                    <ScreenshotNode
+                      key={el.id}
+                      el={el}
+                      isSelected={selectedId === el.id}
+                      onSelect={() => onSelect(el.id)}
+                      onChange={(attrs) => handleChange(el.id, attrs)}
+                    />
+                  );
+                case "text":
+                  return (
+                    <TextNode
+                      key={el.id}
+                      el={el}
+                      isSelected={selectedId === el.id}
+                      onSelect={() => onSelect(el.id)}
+                      onChange={(attrs) => handleChange(el.id, attrs)}
+                    />
+                  );
+                case "accent":
+                  return (
+                    <AccentNode
+                      key={el.id}
+                      el={el}
+                      isSelected={selectedId === el.id}
+                      onSelect={() => onSelect(el.id)}
+                      onChange={(attrs) => handleChange(el.id, attrs)}
+                    />
+                  );
+                case "image":
+                  return (
+                    <ImageNode
+                      key={el.id}
+                      el={el}
+                      isSelected={selectedId === el.id}
+                      onSelect={() => onSelect(el.id)}
+                      onChange={(attrs) => handleChange(el.id, attrs)}
+                    />
+                  );
+              }
+            })}
+          </Layer>
+        </Stage>
+      </div>
     </div>
   );
 }

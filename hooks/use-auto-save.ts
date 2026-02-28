@@ -29,9 +29,11 @@ export function useAutoSave(
     setIsSaving(true);
     setIsSaved(false);
     const savedState = latestStateRef.current;
+    // Update local cache before the network call so template switches mid-save
+    // always pick up the latest state
+    onStateSavedRef.current?.(templateId, savedState);
     try {
       await saveCanvasState(templateId, savedState);
-      onStateSavedRef.current?.(templateId, savedState);
       if (stageRef?.current) {
         const dataUrl = stageRef.current.toDataURL({ pixelRatio: 0.3 });
         const url = await saveTemplateThumbnail(templateId, dataUrl);
@@ -43,6 +45,17 @@ export function useAutoSave(
       setIsSaving(false);
     }
   }, [templateId, stageRef]);
+
+  // Prevent tab close while a save is in flight
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSaving) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isSaving]);
 
   useEffect(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

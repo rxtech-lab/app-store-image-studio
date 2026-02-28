@@ -19,7 +19,8 @@ import { ExportButtons } from "@/components/editor/export-buttons";
 import { Button } from "@/components/ui/button";
 import { IMAGE_PRESETS } from "@/lib/settings";
 import { ScreenshotsDialog } from "@/components/editor/screenshots-dialog";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, LayoutTemplate } from "lucide-react";
+import { SidebarToggle } from "@/components/app-layout";
 
 const CanvasEditor = dynamic(
   () =>
@@ -66,6 +67,7 @@ export function SectionEditorClient({
   const stageRef = useRef<Konva.Stage | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showLayers, setShowLayers] = useState(true);
+  const [showTemplates, setShowTemplates] = useState(true);
 
   const defaultState = getDefaultCanvasState(presetKey);
   const { state, dispatch, undo, addText, addAccent, addScreenshot } =
@@ -151,6 +153,8 @@ export function SectionEditorClient({
     <div className="flex flex-col h-full">
       {/* Site header */}
       <header className="flex items-center gap-3 border-b px-4 h-12 shrink-0">
+        <SidebarToggle />
+        <div className="w-px h-5 bg-border" />
         <Button variant="ghost" size="icon-xs" asChild>
           <Link href={`/project/${projectId}`}>
             <ArrowLeft className="h-4 w-4" />
@@ -167,18 +171,7 @@ export function SectionEditorClient({
         ) : null}
       </header>
 
-      {/* Template strip */}
-      <TemplateStrip
-        templates={templates}
-        activeTemplateId={activeTemplate?.id ?? null}
-        sectionId={sectionId}
-        projectId={projectId}
-        presetKey={presetKey}
-        onSelect={handleTemplateSelect}
-        onTemplatesChange={setTemplates}
-      />
-
-      {!activeTemplate ? (
+      {!activeTemplate && !templates.length ? (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <p>Create a template to start editing</p>
         </div>
@@ -202,6 +195,8 @@ export function SectionEditorClient({
               onAddAccent={addAccent}
               showLayers={showLayers}
               onToggleLayers={() => setShowLayers((v) => !v)}
+              showTemplates={showTemplates}
+              onToggleTemplates={() => setShowTemplates((v) => !v)}
             />
             <div className="w-px h-5 bg-border" />
             {/* Screenshots dialog */}
@@ -225,6 +220,18 @@ export function SectionEditorClient({
 
           {/* Canvas area */}
           <div className="flex-1 flex overflow-hidden">
+            {/* Template sidebar */}
+            <TemplateStrip
+              templates={templates}
+              activeTemplateId={activeTemplate?.id ?? null}
+              sectionId={sectionId}
+              projectId={projectId}
+              presetKey={presetKey}
+              onSelect={handleTemplateSelect}
+              onTemplatesChange={setTemplates}
+              collapsed={!showTemplates}
+              onToggleCollapse={() => setShowTemplates((v) => !v)}
+            />
             {/* Layers panel */}
             {showLayers && (
               <LayersPanel
