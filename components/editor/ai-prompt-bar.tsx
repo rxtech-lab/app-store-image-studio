@@ -2,20 +2,24 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, Send, Square, X } from "lucide-react";
+import { Sparkles, Loader2, Send, Square, X, Trash2 } from "lucide-react";
 
 interface AiPromptBarProps {
   onSend: (prompt: string) => void;
   onStop?: () => void;
+  onClearHistory?: () => void;
   isLoading: boolean;
   statusText?: string;
+  hasHistory?: boolean;
 }
 
 export function AiPromptBar({
   onSend,
   onStop,
+  onClearHistory,
   isLoading,
   statusText,
+  hasHistory,
 }: AiPromptBarProps) {
   const [prompt, setPrompt] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -105,6 +109,17 @@ export function AiPromptBar({
             className="h-8 w-8 shrink-0"
           >
             <Send className="h-4 w-4" />
+          </Button>
+        )}
+        {hasHistory && !isLoading && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={onClearHistory}
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+            title="Clear chat history"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         )}
         <Button

@@ -18,6 +18,7 @@ interface Template {
   name: string;
   canvasState: CanvasState | null;
   thumbnailUrl: string | null;
+  aiMessages: unknown[] | null;
 }
 
 interface TemplateGalleryProps {
@@ -47,7 +48,7 @@ export function TemplateGallery({
       const t = await createTemplate(
         sectionId,
         presetKey,
-        `Template ${templates.length + 1}`
+        `Template ${templates.length + 1}`,
       );
       const newTemplates = [...templates, t as unknown as Template];
       onTemplatesChange(newTemplates);
@@ -69,7 +70,7 @@ export function TemplateGallery({
   const handleRename = async (templateId: string, name: string) => {
     await updateTemplateName(templateId, name);
     onTemplatesChange(
-      templates.map((t) => (t.id === templateId ? { ...t, name } : t))
+      templates.map((t) => (t.id === templateId ? { ...t, name } : t)),
     );
   };
 
@@ -93,7 +94,7 @@ export function TemplateGallery({
             key={t.id}
             className={cn(
               "relative group flex-shrink-0 w-32 border rounded-md p-2 cursor-pointer hover:border-primary",
-              activeTemplateId === t.id && "border-primary ring-1 ring-primary"
+              activeTemplateId === t.id && "border-primary ring-1 ring-primary",
             )}
             onClick={() => onSelect(t)}
           >

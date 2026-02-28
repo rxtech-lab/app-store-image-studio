@@ -54,6 +54,7 @@ export const templates = sqliteTable("templates", {
     import("@/lib/canvas/types").CanvasState
   >(),
   thumbnailUrl: text("thumbnail_url"),
+  aiMessages: text("ai_messages", { mode: "json" }).$type<unknown[]>(),
   isSelected: integer("is_selected", { mode: "boolean" })
     .notNull()
     .default(false),

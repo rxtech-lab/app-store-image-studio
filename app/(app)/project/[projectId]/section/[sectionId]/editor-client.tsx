@@ -6,6 +6,7 @@ import Link from "next/link";
 import type Konva from "konva";
 import type { PresetKey } from "@/lib/settings";
 import type { CanvasState } from "@/lib/canvas/types";
+import type { UIMessage } from "ai";
 import { getDefaultCanvasState } from "@/lib/canvas/defaults";
 import { useCanvasState } from "@/hooks/use-canvas-state";
 import { useAutoSave } from "@/hooks/use-auto-save";
@@ -33,6 +34,7 @@ interface Template {
   name: string;
   canvasState: CanvasState | null;
   thumbnailUrl: string | null;
+  aiMessages: unknown[] | null;
 }
 
 interface Screenshot {
@@ -126,9 +128,13 @@ export function SectionEditorClient({
   const {
     sendEdit,
     stopEdit,
+    clearHistory,
     isLoading: aiLoading,
     statusText,
+    hasHistory,
   } = useAiEdit({
+    templateId: activeTemplate?.id ?? "",
+    initialMessages: (activeTemplate?.aiMessages ?? []) as UIMessage[],
     canvasState: state,
     dispatch,
     stageRef,
@@ -268,8 +274,10 @@ export function SectionEditorClient({
                 <AiPromptBar
                   onSend={sendEdit}
                   onStop={stopEdit}
+                  onClearHistory={clearHistory}
                   isLoading={aiLoading}
                   statusText={statusText}
+                  hasHistory={hasHistory}
                 />
               </div>
             </div>

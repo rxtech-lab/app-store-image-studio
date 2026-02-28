@@ -159,6 +159,19 @@ export async function uploadBackgroundImage(
   return url;
 }
 
+export async function saveAiMessages(templateId: string, messages: unknown[]) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  // Keep only the last 20 messages
+  const trimmed = messages.slice(-20);
+
+  await db
+    .update(templates)
+    .set({ aiMessages: trimmed })
+    .where(eq(templates.id, templateId));
+}
+
 export async function toggleTemplateSelected(
   templateId: string,
   isSelected: boolean,

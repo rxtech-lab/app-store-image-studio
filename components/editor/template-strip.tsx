@@ -25,6 +25,7 @@ interface Template {
   name: string;
   canvasState: CanvasState | null;
   thumbnailUrl: string | null;
+  aiMessages: unknown[] | null;
 }
 
 interface TemplateStripProps {
