@@ -25,6 +25,7 @@ export async function createProject(formData: FormData) {
     .returning();
 
   revalidatePath("/dashboard");
+  revalidatePath("/appstore-marketing-image");
   return project[0];
 }
 
@@ -69,7 +70,8 @@ export async function updateProject(projectId: string, formData: FormData) {
     .where(eq(projects.id, projectId));
 
   revalidatePath("/dashboard");
-  revalidatePath(`/project/${projectId}`);
+  revalidatePath("/appstore-marketing-image");
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
 }
 
 export async function updateProjectData(
@@ -86,7 +88,8 @@ export async function updateProjectData(
     .where(eq(projects.id, projectId));
 
   revalidatePath("/dashboard");
-  revalidatePath(`/project/${projectId}`);
+  revalidatePath("/appstore-marketing-image");
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
 }
 
 export async function deleteProject(projectId: string) {
@@ -96,4 +99,5 @@ export async function deleteProject(projectId: string) {
   await db.delete(projects).where(eq(projects.id, projectId));
 
   revalidatePath("/dashboard");
+  revalidatePath("/appstore-marketing-image");
 }

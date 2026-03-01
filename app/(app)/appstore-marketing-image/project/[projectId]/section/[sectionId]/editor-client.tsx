@@ -162,7 +162,7 @@ export function SectionEditorClient({
         <SidebarToggle />
         <div className="w-px h-5 bg-border" />
         <Button variant="ghost" size="icon-xs" asChild>
-          <Link href={`/project/${projectId}`}>
+          <Link href={`/appstore-marketing-image/project/${projectId}`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>

@@ -82,7 +82,7 @@ export async function saveCanvasState(
       .limit(1);
     if (section[0]) {
       revalidatePath(
-        `/project/${section[0].projectId}/section/${row[0].sectionId}`,
+        `/appstore-marketing-image/project/${section[0].projectId}/section/${row[0].sectionId}`,
       );
     }
   }
@@ -140,7 +140,9 @@ export async function deleteTemplate(
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   await db.delete(templates).where(eq(templates.id, templateId));
-  revalidatePath(`/project/${projectId}/section/${sectionId}`);
+  revalidatePath(
+    `/appstore-marketing-image/project/${projectId}/section/${sectionId}`,
+  );
 }
 
 export async function uploadBackgroundImage(

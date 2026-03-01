@@ -19,7 +19,8 @@ export async function createSection(projectId: string, presetKey: PresetKey) {
     .where(eq(screenshotSections.projectId, projectId))
     .orderBy(asc(screenshotSections.order));
 
-  const maxOrder = existing.length > 0 ? existing[existing.length - 1].order : -1;
+  const maxOrder =
+    existing.length > 0 ? existing[existing.length - 1].order : -1;
 
   const section = await db
     .insert(screenshotSections)
@@ -31,7 +32,7 @@ export async function createSection(projectId: string, presetKey: PresetKey) {
     })
     .returning();
 
-  revalidatePath(`/project/${projectId}`);
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
   return section[0];
 }
 
@@ -64,15 +65,17 @@ export async function deleteSection(sectionId: string, projectId: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  await db.delete(screenshotSections).where(eq(screenshotSections.id, sectionId));
+  await db
+    .delete(screenshotSections)
+    .where(eq(screenshotSections.id, sectionId));
 
-  revalidatePath(`/project/${projectId}`);
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
 }
 
 export async function updateSectionPreset(
   sectionId: string,
   projectId: string,
-  presetKey: PresetKey
+  presetKey: PresetKey,
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -82,5 +85,5 @@ export async function updateSectionPreset(
     .set({ presetKey })
     .where(eq(screenshotSections.id, sectionId));
 
-  revalidatePath(`/project/${projectId}`);
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
 }
