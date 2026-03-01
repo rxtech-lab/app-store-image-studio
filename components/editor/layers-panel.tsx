@@ -330,9 +330,18 @@ function LayerItem({
                 className="h-5 text-xs px-1 flex-1 min-w-0"
               />
             ) : (
-              <span className="text-xs truncate flex-1 min-w-0">
-                {getElementDisplayName(element)}
-              </span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs truncate flex-1 min-w-0">
+                      {getElementDisplayName(element)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {getElementDisplayName(element)}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
 
             {/* Action buttons (visible on hover) */}

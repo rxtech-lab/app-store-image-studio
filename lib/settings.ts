@@ -69,6 +69,7 @@ export type IconPlatform = keyof typeof ICON_EXPORT_SIZES;
 
 export const AI_CONFIG = {
   imageModel: "google/gemini-3.1-flash-image-preview",
+  iconImageModel: "openai/gpt-image-1.5",
   textModel: "google/gemini-3.1-flash-image-preview",
-  editModel: "google/gemini-3-flash",
+  editModel: "minimax/minimax-m2.5",
 } as const;

@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type Konva from "konva";
 import type { CanvasState, CanvasAction } from "@/lib/canvas/types";
 import { saveAiMessages } from "@/actions/templates";
+import { useCanvasPreviewTool } from "./use-canvas-preview-tool";
 
 interface AvailableScreenshot {
   id: string;
@@ -105,17 +106,26 @@ export function useAiEdit({
         api: "/api/ai/edit",
         body: () => ({
           canvasState: canvasStateRef.current,
-          canvasPreviewBase64: capturePreview(),
           screenshots,
           projectDescription,
+          projectId: templateIdRef.current,
         }),
       }),
-    [capturePreview, screenshots, projectDescription],
+    [screenshots, projectDescription],
   );
 
-  const { messages, sendMessage, status, setMessages, stop } = useChat({
-    transport,
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  const { messages, sendMessage, status, setMessages, stop, addToolOutput } =
+    useChat({
+      transport,
+      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    });
+
+  // Handle viewCanvasPreview as a client-side tool
+  useCanvasPreviewTool({
+    messages,
+    capturePreview,
+    addToolOutput,
+    projectId: templateId,
   });
 
   // Load saved messages when template changes

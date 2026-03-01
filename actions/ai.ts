@@ -30,6 +30,24 @@ export async function generateBackground(prompt: string): Promise<string> {
   return url;
 }
 
+export async function uploadCanvasPreview(
+  base64: string,
+  blobPrefix: string,
+): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const buffer = Buffer.from(base64, "base64");
+  const file = new File([buffer], "canvas-preview.png", {
+    type: "image/png",
+  });
+  const url = await uploadBlob(
+    file,
+    `canvas-previews/${blobPrefix}/latest.png`,
+  );
+  return url;
+}
+
 export async function generateMarketingText(
   appDescription: string
 ): Promise<string[]> {

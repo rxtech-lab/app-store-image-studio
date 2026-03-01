@@ -1,6 +1,7 @@
 import {
   streamText,
   generateText,
+  generateImage,
   tool,
   zodSchema,
   convertToModelMessages,
@@ -12,7 +13,7 @@ import { nanoid } from "nanoid";
 import { auth } from "@/lib/auth";
 import { uploadBlob } from "@/lib/blob";
 import { AI_CONFIG } from "@/lib/settings";
-import { removeGreenScreen } from "@/lib/image/remove-green-screen";
+import { summarizeCanvasState } from "@/lib/ai/summarize-canvas";
 import {
   setBackgroundColorSchema,
   generateBackgroundSchema,
@@ -37,12 +38,12 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const canvasState = body.canvasState as CanvasState;
-  const canvasPreviewBase64 = body.canvasPreviewBase64 as string | undefined;
   const projectDescription = body.projectDescription as string | undefined;
+  const projectId = body.projectId as string | undefined;
   const uiMessages = body.messages as UIMessage[];
 
   const systemPrompt = buildSystemPrompt(canvasState, projectDescription);
-  const userId = session.user.id;
+  const blobPrefix = projectId ?? session.user.id;
 
   const messages = await convertToModelMessages(
     uiMessages.filter(
@@ -70,21 +71,18 @@ export async function POST(req: Request) {
           "Generate a background image using AI and set it as the canvas background.",
         inputSchema: zodSchema(generateBackgroundSchema),
         execute: async ({ prompt: bgPrompt }) => {
-          const genResult = await generateText({
-            model: gateway(AI_CONFIG.imageModel),
+          const result = await generateImage({
+            model: gateway.image(AI_CONFIG.iconImageModel),
             prompt: `Clean, minimal icon background: ${bgPrompt}. Simple smooth gradient or solid color. Apple-style, elegant. No text, no objects, no patterns.`,
+            size: "1024x1024",
           });
-          const imageFile = genResult.files.find((f) =>
-            f.mediaType?.startsWith("image/"),
-          );
-          if (!imageFile) throw new Error("No image generated");
-          const buffer = Buffer.from(imageFile.uint8Array);
+          const buffer = Buffer.from(result.images[0].base64, "base64");
           const file = new File([buffer], "background.png", {
             type: "image/png",
           });
           const url = await uploadBlob(
             file,
-            `icon-backgrounds/${userId}/${Date.now()}.png`,
+            `icon-backgrounds/${blobPrefix}/${Date.now()}.png`,
           );
           return { url };
         },
@@ -121,33 +119,40 @@ export async function POST(req: Request) {
       }),
       addImageElement: tool({
         description:
-          "Generate an image layer with a transparent background using AI, and add it to the canvas. The image will be generated with a green screen background and automatically processed to have transparency.",
+          "Generate an image layer with a transparent background using AI, and add it to the canvas. Pass the concept image URL as referenceImageUrl to maintain visual consistency.",
         inputSchema: zodSchema(addImageElementSchema),
-        execute: async ({ prompt: imgPrompt, ...params }) => {
-          // Generate with chromakey green background
-          const genResult = await generateText({
-            model: gateway(AI_CONFIG.imageModel),
-            prompt: `${imgPrompt}. STYLE: Flat 2D vector illustration. Solid fills, no textures, no gradients within shapes. Like an SVG icon or SF Symbol — pure geometric shapes with flat solid colors. Absolutely NO 3D, NO realistic rendering, NO shadows, NO highlights, NO reflections, NO skeuomorphism, NO perspective. Just flat colored shapes on a single plane. IMPORTANT: The subject must NOT contain any green, lime, or teal colors — avoid all shades of green entirely. BACKGROUND: Solid flat uniform chromakey green #00FF00. The entire background must be this single pure green color with NO variation. The subject should have sharp, clean edges against the green background.`,
-          });
-          const imageFile = genResult.files.find((f) =>
-            f.mediaType?.startsWith("image/"),
-          );
-          if (!imageFile) throw new Error("No image generated");
+        execute: async ({
+          prompt: imgPrompt,
+          referenceImageUrl,
+          ...params
+        }) => {
+          const promptText = `${imgPrompt}. STYLE: Flat 2D vector illustration. Solid fills, no textures, no gradients within shapes. Like an SVG icon or SF Symbol — pure geometric shapes with flat solid colors. Absolutely NO 3D, NO realistic rendering, NO shadows, NO highlights, NO reflections, NO skeuomorphism, NO perspective. Just flat colored shapes on a single plane.`;
 
-          // Remove green screen to create transparency
-          const rawBuffer = Buffer.from(imageFile.uint8Array);
-          const transparentBuffer = await removeGreenScreen(rawBuffer);
+          console.log("Generating image with prompt:", promptText);
+          let referenceBuffer: Buffer | undefined;
+          if (referenceImageUrl) {
+            const res = await fetch(referenceImageUrl);
+            referenceBuffer = Buffer.from(await res.arrayBuffer());
+          }
 
-          const file = new File(
-            [new Uint8Array(transparentBuffer)],
-            "icon-layer.png",
-            {
-              type: "image/png",
+          const result = await generateImage({
+            model: gateway.image(AI_CONFIG.iconImageModel),
+            prompt: referenceBuffer
+              ? { text: promptText, images: [referenceBuffer] }
+              : promptText,
+            size: "1024x1024",
+            providerOptions: {
+              openai: { background: "transparent", output_format: "png" },
             },
-          );
+          });
+
+          const buffer = Buffer.from(result.images[0].base64, "base64");
+          const file = new File([buffer], "icon-layer.png", {
+            type: "image/png",
+          });
           const url = await uploadBlob(
             file,
-            `icon-layers/${userId}/${Date.now()}.png`,
+            `icon-layers/${blobPrefix}/${Date.now()}.png`,
           );
           return {
             ...params,
@@ -165,131 +170,64 @@ export async function POST(req: Request) {
       }),
       generateIconConcept: tool({
         description:
-          "Generate a complete icon concept image as a visual reference. This does NOT add anything to the canvas — it only shows you the concept so you can then decompose it into layers using addImageElement. Always call this FIRST when creating a new icon.",
+          "Generate a complete icon concept image as a visual reference. This does NOT add anything to the canvas — it only shows you the concept so you can then decompose it into layers using addImageElement. Always call this FIRST when creating a new icon. When the canvas already has layers, pass the canvasPreviewUrl from viewCanvasPreview so the concept builds on the existing design.",
         inputSchema: zodSchema(generateIconConceptSchema),
-        execute: async ({ prompt: conceptPrompt }) => {
-          console.log("Generating icon concept with prompt:", conceptPrompt);
-          const genResult = await generateText({
-            model: gateway(AI_CONFIG.imageModel),
-            prompt: `Design a complete app icon: ${conceptPrompt}. Style: Flat 2D, minimal, Apple-style app icon. Bold solid colors, simple geometric shapes, clean vector look. Square format, no rounded corners. No text unless specified. NOT realistic, NOT 3D, NOT photographic.`,
-          });
+        execute: async ({ prompt: conceptPrompt, canvasPreviewUrl }) => {
+          const styleGuide = `Style: Flat 2D, minimal, Apple-style app icon. Bold solid colors, simple geometric shapes, clean vector look. Square format, no rounded corners. No text unless specified. NOT realistic, NOT 3D, NOT photographic.`;
+
+          let genResult;
+          if (canvasPreviewUrl) {
+            const res = await fetch(canvasPreviewUrl);
+            const imageBuffer = Buffer.from(await res.arrayBuffer());
+            genResult = await generateText({
+              model: gateway(AI_CONFIG.imageModel),
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "image",
+                      image: imageBuffer,
+                    },
+                    {
+                      type: "text",
+                      text: `This is the current canvas design. Based on this existing design, generate an improved/updated complete app icon concept: ${conceptPrompt}. ${styleGuide}`,
+                    },
+                  ],
+                },
+              ],
+            });
+          } else {
+            genResult = await generateText({
+              model: gateway(AI_CONFIG.imageModel),
+              prompt: `Design a complete app icon: ${conceptPrompt}. ${styleGuide}`,
+            });
+          }
+
           const imageFile = genResult.files.find((f) =>
             f.mediaType?.startsWith("image/"),
           );
-          if (!imageFile) throw new Error("No concept image generated");
+          if (!imageFile) throw new Error("No image generated");
           const buffer = Buffer.from(imageFile.uint8Array);
-          const base64 = buffer.toString("base64");
           const file = new File([buffer], "icon-concept.png", {
             type: "image/png",
           });
           const url = await uploadBlob(
             file,
-            `icon-concepts/${userId}/${Date.now()}.png`,
+            `icon-concepts/${blobPrefix}/${Date.now()}.png`,
           );
-          return { url, base64 };
-        },
-        toModelOutput: async ({ output }) => {
-          const o = output as Record<string, unknown>;
-          if (!o.base64)
-            return { type: "text", value: "Failed to generate concept" };
-          return {
-            type: "content",
-            value: [
-              {
-                type: "file-data" as const,
-                data: o.base64 as string,
-                mediaType: "image/png",
-              },
-              {
-                type: "text" as const,
-                text: "Icon concept generated. The user will review and confirm before you proceed to build layers.",
-              },
-            ],
-          };
+          return { url };
         },
       }),
       viewCanvasPreview: tool({
         description:
           "View a preview image of the current canvas design. Use this to verify the visual result.",
         inputSchema: zodSchema(viewCanvasPreviewSchema),
-        execute: async () => {
-          if (!canvasPreviewBase64) {
-            return { error: "Canvas preview not available" };
-          }
-          return { base64: canvasPreviewBase64 };
-        },
-        toModelOutput: async ({ output }) => {
-          const o = output as Record<string, unknown>;
-          if (o.error) return { type: "text", value: String(o.error) };
-          return {
-            type: "content",
-            value: [
-              {
-                type: "file-data" as const,
-                data: o.base64 as string,
-                mediaType: "image/png",
-              },
-              {
-                type: "text" as const,
-                text: `Current canvas preview (${canvasState.width}x${canvasState.height}px)`,
-              },
-            ],
-          };
-        },
       }),
     },
   });
 
   return result.toUIMessageStreamResponse();
-}
-
-function summarizeCanvasState(canvasState: CanvasState): string {
-  const bg =
-    canvasState.backgroundColor === "transparent"
-      ? "transparent"
-      : canvasState.backgroundImageUrl
-        ? `image (${canvasState.backgroundImageUrl.split("/").pop()})`
-        : canvasState.backgroundColor;
-
-  const lines: string[] = [
-    `Canvas: ${canvasState.width}x${canvasState.height}px | bg: ${bg}`,
-    ``,
-    `Layers (bottom → top):`,
-  ];
-
-  if (canvasState.elements.length === 0) {
-    lines.push("  (empty)");
-  } else {
-    canvasState.elements.forEach((el, i) => {
-      const prefix = `${i + 1}.`;
-      const pos = `pos:(${Math.round(el.x)},${Math.round(el.y)}) size:${Math.round(el.width)}x${Math.round(el.height)}`;
-      const label = el.name ? ` "${el.name}"` : "";
-      if (el.type === "text") {
-        const style = [
-          `${el.fontSize}px`,
-          el.fontWeight !== "normal" ? el.fontWeight : "",
-          el.fontStyle !== "normal" ? el.fontStyle : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        const preview =
-          el.text.length > 40 ? el.text.slice(0, 40) + "…" : el.text;
-        lines.push(
-          `  ${prefix} [text]${label} id:"${el.id}" | "${preview}" | ${style} ${el.fill} | ${pos}`,
-        );
-      } else if (el.type === "image") {
-        lines.push(
-          `  ${prefix} [image]${label} id:"${el.id}" | opacity:${el.opacity} | ${pos}`,
-        );
-      } else if (el.type === "accent") {
-        lines.push(
-          `  ${prefix} [accent/${el.shape}]${label} id:"${el.id}" | fill:${el.fill} | ${pos}`,
-        );
-      }
-    });
-  }
-
-  return lines.join("\n");
 }
 
 function buildSystemPrompt(
@@ -308,32 +246,33 @@ CRITICAL RULES:
 - You MUST call tools to make any changes. Text responses alone do NOT modify the canvas.
 - NEVER describe what you "would" do or "could" do. Just DO it by calling tools.
 - For each change the user requests, call the appropriate tool immediately.
-- ALWAYS call addImageElement MULTIPLE TIMES to build layered icons — never just once.
+- Build layered icons using multiple addImageElement calls for SEPARATE visual elements — but NEVER split a single cohesive object into parts.
 - After completing all edits, call viewCanvasPreview to verify the visual result.
 - After all tool calls are complete, send a brief 1-sentence confirmation of what you changed.
 
 TWO-PHASE ICON DESIGN WORKFLOW:
 When creating a new icon, ALWAYS follow these two phases:
 
-PHASE 1 — CONCEPT: Call generateIconConcept first to generate a complete icon as a visual reference.
-PHASE 2 — BUILD: Look at the concept image and decompose it into layers. Use setBackgroundColor for the background, then call addImageElement MULTIPLE TIMES — once for each visual element you see in the concept.
+PHASE 0 — VIEW (when canvas has existing layers): If the canvas already has elements/layers, call viewCanvasPreview FIRST to see the current design before generating a concept. Then pass the preview URL as canvasPreviewUrl to generateIconConcept so the new concept builds on the existing design.
+PHASE 1 — CONCEPT: Call generateIconConcept to generate a complete icon as a visual reference. If you viewed the canvas in Phase 0, pass the canvasPreviewUrl from the viewCanvasPreview result.
+PHASE 2 — BUILD: Look at the concept image and recreate it with layers. Use setBackgroundColor for the background, then call addImageElement for each SEPARATE visual element. Keep cohesive objects together as one image — only split into layers when elements are truly independent (e.g. a background shape vs. a foreground symbol).
 
 LAYER BUILDING RULES:
 - ALWAYS use addImageElement for ALL visual elements. NEVER use addAccentElement.
-- addImageElement generates flat 2D vector-style images with transparent backgrounds.
-- Each addImageElement prompt should describe ONE element from the concept — not the entire icon.
-- You MUST create AT LEAST 2-3 image layers. A single addImageElement call is NOT acceptable.
+- addImageElement generates flat 2D vector-style images with transparent backgrounds natively (no post-processing needed).
+- When calling addImageElement, ALWAYS pass the concept image URL as referenceImageUrl so the generated layers match the concept's style and colors.
+- NEVER split a single cohesive image into multiple parts. If the concept shows one object (e.g. a camera, a shield, a music note), generate it as ONE addImageElement call — do NOT separate it into pieces like "the body", "the lens", "the button".
+- Use MULTIPLE addImageElement calls only for truly SEPARATE visual elements that are layered on top of each other (e.g. a background circle + an icon symbol on top + a small badge).
+- "Layered" means distinct objects stacked/overlapping — NOT decomposing one object into fragments.
 - NEVER create rounded corners, borders, or icon masks — Xcode/Android Studio handles that automatically.
-- AVOID green colors in prompts — green is removed during transparency processing.
 - Only use addTextElement when the user explicitly asks for text.
 
 EXAMPLE — "storage" app icon:
 Phase 1: generateIconConcept("A storage app icon with a blue background, white hard drive symbol with a download arrow")
 Phase 2 (after seeing the concept):
 1. setBackgroundColor: "#0A84FF"
-2. addImageElement: "A large flat white circle, centered" (background shape from concept)
-3. addImageElement: "A flat minimal hard drive symbol, simple geometric rectangles stacked" (main symbol from concept)
-4. addImageElement: "A small flat white downward arrow" (detail from concept)
+2. addImageElement: "A large flat white circle, centered" (separate background shape)
+3. addImageElement: "A flat minimal hard drive symbol with a small downward arrow, simple geometric design" (the main symbol as ONE cohesive image — do NOT split the drive and arrow into separate layers)
 
 ICON DESIGN PRINCIPLES:
 - Canvas: ${canvasState.width}x${canvasState.height}px (square)

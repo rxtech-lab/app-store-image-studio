@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type Konva from "konva";
 import type { CanvasState, CanvasAction } from "@/lib/canvas/types";
 import { saveIconAiMessages } from "@/actions/icon-projects";
+import { useCanvasPreviewTool } from "./use-canvas-preview-tool";
 
 interface UseAiIconEditOptions {
   iconProjectId: string;
@@ -93,11 +94,12 @@ export function useAiIconEdit({
         api: "/api/ai/icon-edit",
         body: () => ({
           canvasState: canvasStateRef.current,
-          canvasPreviewBase64: capturePreview(),
+          canvasPreview: capturePreview(),
           projectDescription,
+          projectId: projectIdRef.current,
         }),
       }),
-    [capturePreview, projectDescription],
+    [projectDescription],
   );
 
   const shouldAutoSend = useCallback(
@@ -120,13 +122,22 @@ export function useAiIconEdit({
     [],
   );
 
-  const { messages, sendMessage, status, setMessages, stop } = useChat({
-    transport,
-    sendAutomaticallyWhen: shouldAutoSend,
-  });
+  const { messages, sendMessage, status, setMessages, stop, addToolOutput } =
+    useChat({
+      transport,
+      sendAutomaticallyWhen: shouldAutoSend,
+    });
 
   const stopRef = useRef(stop);
   stopRef.current = stop;
+
+  // Handle viewCanvasPreview as a client-side tool
+  useCanvasPreviewTool({
+    messages,
+    capturePreview,
+    addToolOutput,
+    projectId: iconProjectId,
+  });
 
   useEffect(() => {
     processedToolCalls.current = new Set();

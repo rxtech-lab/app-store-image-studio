@@ -167,6 +167,12 @@ export const generateIconConceptSchema = z.object({
     .describe(
       "Description of the complete icon to generate as a concept reference. Describe the full icon including background, main subject, and details.",
     ),
+  canvasPreviewUrl: z
+    .string()
+    .describe(
+      "URL of the current canvas preview image (from viewCanvasPreview result). Pass this when the canvas already has layers so the concept builds on the existing design.",
+    )
+    .optional(),
 });
 
 export const addImageElementSchema = z.object({
@@ -177,6 +183,12 @@ export const addImageElementSchema = z.object({
   prompt: z
     .string()
     .describe("Description of the image to generate for this layer"),
+  referenceImageUrl: z
+    .string()
+    .describe(
+      "URL of a reference image (e.g. the concept image) to guide the generation style and composition",
+    )
+    .optional(),
   x: z.number(),
   y: z.number(),
   width: z.number(),
