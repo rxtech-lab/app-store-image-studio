@@ -48,7 +48,7 @@ export function ExportButtons({
 
       const zip = new JSZip();
       zip.file(`${projectName}.png`, base64, { base64: true });
-      const zipBuffer = await zip.generateAsync({ type: "uint8array" });
+      const zipBuffer = await zip.generateAsync({ type: "arraybuffer" });
 
       const blob = new Blob([zipBuffer], {
         type: "application/zip",
