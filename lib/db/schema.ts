@@ -21,6 +21,8 @@ export const screenshotSections = sqliteTable("screenshot_sections", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   presetKey: text("preset_key").notNull(),
+  customWidth: integer("custom_width"),
+  customHeight: integer("custom_height"),
   order: integer("order").notNull().default(0),
   createdAt: text("created_at")
     .notNull()

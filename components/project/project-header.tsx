@@ -13,17 +13,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
+import { motion } from "motion/react";
 
 interface ProjectHeaderProps {
   projectId: string;
   name: string;
   description?: string | null;
+  sectionCount: number;
 }
 
 export function ProjectHeader({
   projectId,
   name,
   description,
+  sectionCount,
 }: ProjectHeaderProps) {
   const [open, setOpen] = useState(false);
   const [nameValue, setNameValue] = useState(name);
@@ -50,22 +53,37 @@ export function ProjectHeader({
 
   return (
     <>
-      <div className="flex items-start gap-2 group">
-        <div>
-          <h1 className="text-3xl font-bold">{name}</h1>
+      <motion.div
+        className="group"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+      >
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 transition-opacity"
+            onClick={handleOpen}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-3 mt-1.5">
           {description && (
-            <p className="text-muted-foreground mt-1">{description}</p>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          )}
+          {description && sectionCount > 0 && (
+            <span className="text-muted-foreground/40">·</span>
+          )}
+          {sectionCount > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {sectionCount} {sectionCount === 1 ? "template" : "templates"}
+            </p>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-1 opacity-0 group-hover:opacity-100 h-7 w-7 p-0"
-          onClick={handleOpen}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-      </div>
+      </motion.div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

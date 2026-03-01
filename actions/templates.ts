@@ -13,13 +13,19 @@ import { uploadBlob } from "@/lib/blob";
 
 export async function createTemplate(
   sectionId: string,
-  presetKey: PresetKey,
+  presetKey: PresetKey | "custom",
   name?: string,
+  customWidth?: number | null,
+  customHeight?: number | null,
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const defaultState = getDefaultCanvasState(presetKey);
+  const defaultState = getDefaultCanvasState(
+    presetKey,
+    customWidth,
+    customHeight,
+  );
 
   const template = await db
     .insert(templates)

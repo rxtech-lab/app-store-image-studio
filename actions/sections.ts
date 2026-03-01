@@ -1,14 +1,20 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { screenshotSections } from "@/lib/db/schema";
+import { screenshotSections, templates } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { nanoid } from "nanoid";
 import { eq, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { PresetKey } from "@/lib/settings";
+import { getDefaultCanvasState } from "@/lib/canvas/defaults";
 
-export async function createSection(projectId: string, presetKey: PresetKey) {
+export async function createSection(
+  projectId: string,
+  presetKey: PresetKey | "custom",
+  customWidth?: number,
+  customHeight?: number,
+) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -22,15 +28,32 @@ export async function createSection(projectId: string, presetKey: PresetKey) {
   const maxOrder =
     existing.length > 0 ? existing[existing.length - 1].order : -1;
 
+  const sectionId = nanoid();
   const section = await db
     .insert(screenshotSections)
     .values({
-      id: nanoid(),
+      id: sectionId,
       projectId,
       presetKey,
+      customWidth: presetKey === "custom" ? (customWidth ?? null) : null,
+      customHeight: presetKey === "custom" ? (customHeight ?? null) : null,
       order: maxOrder + 1,
     })
     .returning();
+
+  // Auto-create the first template so the editor is ready
+  const defaultState = getDefaultCanvasState(
+    presetKey,
+    customWidth,
+    customHeight,
+  );
+  await db.insert(templates).values({
+    id: nanoid(),
+    sectionId,
+    name: "Template 1",
+    canvasState: defaultState,
+    isSelected: false,
+  });
 
   revalidatePath(`/appstore-marketing-image/project/${projectId}`);
   return section[0];
