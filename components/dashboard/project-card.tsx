@@ -29,7 +29,10 @@ interface ProjectCardProps {
 export function ProjectCard({ project }: ProjectCardProps) {
   return (
     <Card className="group relative">
-      <Link href={`/project/${project.id}`} className="absolute inset-0 z-0" />
+      <Link
+        href={`/appstore-marketing-image/project/${project.id}`}
+        className="absolute inset-0 z-0"
+      />
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1 min-w-0">

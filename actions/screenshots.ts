@@ -11,7 +11,7 @@ import { uploadBlob, deleteBlob } from "@/lib/blob";
 export async function uploadScreenshot(
   sectionId: string,
   projectId: string,
-  formData: FormData
+  formData: FormData,
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -22,7 +22,7 @@ export async function uploadScreenshot(
   const id = nanoid();
   const imageUrl = await uploadBlob(
     file,
-    `screenshots/${session.user.id}/${id}-${file.name}`
+    `screenshots/${session.user.id}/${id}-${file.name}`,
   );
 
   // Get max order
@@ -32,7 +32,8 @@ export async function uploadScreenshot(
     .where(eq(screenshots.sectionId, sectionId))
     .orderBy(asc(screenshots.order));
 
-  const maxOrder = existing.length > 0 ? existing[existing.length - 1].order : -1;
+  const maxOrder =
+    existing.length > 0 ? existing[existing.length - 1].order : -1;
 
   const screenshot = await db
     .insert(screenshots)
@@ -45,7 +46,7 @@ export async function uploadScreenshot(
     })
     .returning();
 
-  revalidatePath(`/project/${projectId}`);
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
   return screenshot[0];
 }
 
@@ -62,7 +63,7 @@ export async function listScreenshots(sectionId: string) {
 
 export async function deleteScreenshot(
   screenshotId: string,
-  projectId: string
+  projectId: string,
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -78,5 +79,5 @@ export async function deleteScreenshot(
     await db.delete(screenshots).where(eq(screenshots.id, screenshotId));
   }
 
-  revalidatePath(`/project/${projectId}`);
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
 }

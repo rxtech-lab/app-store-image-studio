@@ -34,7 +34,7 @@ export function SectionCard({ section }: SectionCardProps) {
   return (
     <Card className="group relative">
       <Link
-        href={`/project/${section.projectId}/section/${section.id}`}
+        href={`/appstore-marketing-image/project/${section.projectId}/section/${section.id}`}
         className="absolute inset-0 z-0"
       />
       <CardHeader>
@@ -58,7 +58,7 @@ export function SectionCard({ section }: SectionCardProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
                 <Link
-                  href={`/project/${section.projectId}/section/${section.id}`}
+                  href={`/appstore-marketing-image/project/${section.projectId}/section/${section.id}`}
                   className="flex items-center"
                 >
                   <Pencil className="mr-2 h-4 w-4" />
