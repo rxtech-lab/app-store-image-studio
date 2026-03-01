@@ -205,12 +205,18 @@ export function useAiEdit({
   }, [messages, dispatch]);
 
   const sendEdit = useCallback(
-    (prompt: string) => {
-      // Mark the start of a new interaction for status log display
+    (prompt: string, imageUrls?: string[]) => {
       interactionStartRef.current = messages.length;
       setStatusLog([]);
       setAiText("");
-      sendMessage({ text: prompt });
+
+      const files = imageUrls?.map((url) => ({
+        type: "file" as const,
+        mediaType: "image/png" as const,
+        url,
+      }));
+
+      sendMessage({ text: prompt, files: files?.length ? files : undefined });
     },
     [sendMessage, messages.length],
   );

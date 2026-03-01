@@ -224,23 +224,29 @@ export function useAiIconEdit({
   }, [messages, dispatch]);
 
   const sendEdit = useCallback(
-    (prompt: string) => {
+    (prompt: string, imageUrls?: string[]) => {
       const url = conceptUrlRef.current;
       if (url) {
-        // User typed feedback while concept is showing — treat as guided regen
         setConceptImage(null);
         conceptUrlRef.current = null;
       }
       interactionStartRef.current = messages.length;
       setStatusLog([]);
       setAiText("");
+
+      const files: { type: "file"; mediaType: "image/png"; url: string }[] = [];
+      if (url) files.push({ type: "file", mediaType: "image/png", url });
+      if (imageUrls) {
+        for (const u of imageUrls) {
+          files.push({ type: "file", mediaType: "image/png", url: u });
+        }
+      }
+
       sendMessage({
         text: url
           ? `${prompt}. Here is the previous concept for reference — regenerate based on this feedback.`
           : prompt,
-        files: url
-          ? [{ type: "file" as const, mediaType: "image/png", url }]
-          : undefined,
+        files: files.length > 0 ? files : undefined,
       });
     },
     [sendMessage, messages.length],
