@@ -11,27 +11,19 @@ import type { UIMessage } from "ai";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type Konva from "konva";
 import type { CanvasState, CanvasAction } from "@/lib/canvas/types";
-import { saveAiMessages } from "@/actions/templates";
+import { saveIconAiMessages } from "@/actions/icon-projects";
 import { useCanvasPreviewTool } from "./use-canvas-preview-tool";
 
-interface AvailableScreenshot {
-  id: string;
-  imageUrl: string;
-  originalFilename: string;
-}
-
-interface UseAiEditOptions {
-  templateId: string;
+interface UseAiIconEditOptions {
+  iconProjectId: string;
   initialMessages?: UIMessage[];
   canvasState: CanvasState;
   dispatch: React.Dispatch<CanvasAction>;
   stageRef: React.RefObject<Konva.Stage | null>;
-  screenshots: AvailableScreenshot[];
   projectDescription?: string;
   onComplete?: () => void;
 }
 
-// Extract output from a completed tool part (state: "output-available")
 function getToolOutput(
   part: Record<string, unknown>,
 ): Record<string, unknown> | null {
@@ -42,9 +34,6 @@ function getToolOutput(
     : null;
 }
 
-/**
- * Strip base64 image data from tool outputs before saving to DB.
- */
 function sanitizeForStorage(messages: UIMessage[]): UIMessage[] {
   return messages.map((msg) => ({
     ...msg,
@@ -67,29 +56,29 @@ function sanitizeForStorage(messages: UIMessage[]): UIMessage[] {
   }));
 }
 
-export function useAiEdit({
-  templateId,
+export function useAiIconEdit({
+  iconProjectId,
   initialMessages: initialMessagesProp,
   canvasState,
   dispatch,
   stageRef,
-  screenshots,
   projectDescription,
   onComplete,
-}: UseAiEditOptions) {
+}: UseAiIconEditOptions) {
   const processedToolCalls = useRef(new Set<string>());
   const canvasStateRef = useRef(canvasState);
   canvasStateRef.current = canvasState;
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const templateIdRef = useRef(templateId);
-  templateIdRef.current = templateId;
+  const projectIdRef = useRef(iconProjectId);
+  projectIdRef.current = iconProjectId;
   const initialMessagesRef = useRef(initialMessagesProp);
   initialMessagesRef.current = initialMessagesProp;
 
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [aiText, setAiText] = useState("");
-  // Track where the current interaction starts so we only show new status logs
+  const [conceptImage, setConceptImage] = useState<string | null>(null);
+  const conceptUrlRef = useRef<string | null>(null);
   const interactionStartRef = useRef(0);
 
   const capturePreview = useCallback(() => {
@@ -97,44 +86,64 @@ export function useAiEdit({
     if (!stage) return undefined;
     const scale = stage.scaleX();
     const dataUrl = stage.toDataURL({ pixelRatio: 1 / scale });
-    // Strip the data:image/png;base64, prefix
     return dataUrl.replace(/^data:image\/\w+;base64,/, "");
   }, [stageRef]);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
-        api: "/api/ai/edit",
+        api: "/api/ai/icon-edit",
         body: () => ({
           canvasState: canvasStateRef.current,
-          screenshots,
+          canvasPreview: capturePreview(),
           projectDescription,
-          projectId: templateIdRef.current,
+          projectId: projectIdRef.current,
         }),
       }),
-    [screenshots, projectDescription],
+    [projectDescription],
+  );
+
+  const shouldAutoSend = useCallback(
+    ({ messages: msgs }: { messages: UIMessage[] }) => {
+      if (!lastAssistantMessageIsCompleteWithToolCalls({ messages: msgs }))
+        return false;
+      // Pause after concept generation so user can confirm or regen
+      const lastMsg = msgs[msgs.length - 1];
+      if (lastMsg?.role === "assistant") {
+        const toolParts = lastMsg.parts.filter((p) => isToolUIPart(p));
+        if (
+          toolParts.length > 0 &&
+          toolParts.every((p) => getToolName(p) === "generateIconConcept")
+        ) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [],
   );
 
   const { messages, sendMessage, status, setMessages, stop, addToolOutput } =
     useChat({
       transport,
-      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+      sendAutomaticallyWhen: shouldAutoSend,
     });
+
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
 
   // Handle viewCanvasPreview as a client-side tool
   useCanvasPreviewTool({
     messages,
     capturePreview,
     addToolOutput,
-    projectId: templateId,
+    projectId: iconProjectId,
   });
 
-  // Load saved messages when template changes
   useEffect(() => {
     processedToolCalls.current = new Set();
     const msgs = initialMessagesRef.current ?? [];
     if (msgs.length > 0) {
-      // Pre-populate processedToolCalls so we don't re-dispatch old results
       for (const msg of msgs) {
         if (msg.role === "assistant") {
           for (const part of msg.parts) {
@@ -153,9 +162,8 @@ export function useAiEdit({
     }
     setStatusLog([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId]);
+  }, [iconProjectId]);
 
-  // Process tool results and build status log (only from current interaction)
   useEffect(() => {
     const newLogs: string[] = [];
     let latestText = "";
@@ -176,12 +184,23 @@ export function useAiEdit({
             !processedToolCalls.current.has(p.toolCallId as string)
           ) {
             processedToolCalls.current.add(p.toolCallId as string);
-            dispatchToolResult(
-              toolName,
-              output,
-              dispatch,
-              canvasStateRef.current,
-            );
+            if (toolName === "generateIconConcept" && output.url) {
+              const url = output.url as string;
+              conceptUrlRef.current = url;
+              setConceptImage(url);
+              // Stop the stream and strip base64 from messages to prevent context bloat
+              stopRef.current();
+              queueMicrotask(() => {
+                setMessages((prev) => sanitizeForStorage(prev));
+              });
+            } else {
+              dispatchToolResult(
+                toolName,
+                output,
+                dispatch,
+                canvasStateRef.current,
+              );
+            }
           }
 
           newLogs.push(output ? name : `${name}...`);
@@ -206,11 +225,23 @@ export function useAiEdit({
 
   const sendEdit = useCallback(
     (prompt: string) => {
-      // Mark the start of a new interaction for status log display
+      const url = conceptUrlRef.current;
+      if (url) {
+        // User typed feedback while concept is showing — treat as guided regen
+        setConceptImage(null);
+        conceptUrlRef.current = null;
+      }
       interactionStartRef.current = messages.length;
       setStatusLog([]);
       setAiText("");
-      sendMessage({ text: prompt });
+      sendMessage({
+        text: url
+          ? `${prompt}. Here is the previous concept for reference — regenerate based on this feedback.`
+          : prompt,
+        files: url
+          ? [{ type: "file" as const, mediaType: "image/png", url }]
+          : undefined,
+      });
     },
     [sendMessage, messages.length],
   );
@@ -221,12 +252,14 @@ export function useAiEdit({
 
   const clearHistory = useCallback(() => {
     processedToolCalls.current.clear();
+    conceptUrlRef.current = null;
+    setConceptImage(null);
     setStatusLog([]);
     setAiText("");
     setMessages([]);
     interactionStartRef.current = 0;
-    if (templateIdRef.current) {
-      saveAiMessages(templateIdRef.current, []);
+    if (projectIdRef.current) {
+      saveIconAiMessages(projectIdRef.current, []);
     }
   }, [setMessages]);
 
@@ -239,19 +272,59 @@ export function useAiEdit({
       processedToolCalls.current.size > 0
     ) {
       onCompleteRef.current?.();
-      // Save messages to DB (last 20, with base64 stripped)
-      if (templateIdRef.current && messages.length > 0) {
+      if (projectIdRef.current && messages.length > 0) {
         const sanitized = sanitizeForStorage(messages);
         const trimmed = sanitized.slice(-20);
-        saveAiMessages(templateIdRef.current, trimmed);
+        saveIconAiMessages(projectIdRef.current, trimmed);
       }
     }
     wasLoadingRef.current = isLoading;
   }, [isLoading, messages]);
 
-  // Build display text from accumulated status log (tool labels only)
   const statusText =
     isLoading && statusLog.length === 0 ? "Thinking..." : statusLog.join(" → ");
+
+  const dismissConcept = useCallback(() => setConceptImage(null), []);
+
+  const confirmConcept = useCallback(() => {
+    const url = conceptUrlRef.current;
+    setConceptImage(null);
+    conceptUrlRef.current = null;
+    interactionStartRef.current = messages.length;
+    setStatusLog([]);
+    sendMessage({
+      text: "Concept approved. Now decompose this concept into layers: use setBackgroundColor for the background, then call addImageElement multiple times for each visual element.",
+      files: url
+        ? [
+            {
+              type: "file" as const,
+              mediaType: "image/png",
+              url,
+            },
+          ]
+        : undefined,
+    });
+  }, [sendMessage, messages.length]);
+
+  const regenConcept = useCallback(() => {
+    const url = conceptUrlRef.current;
+    setConceptImage(null);
+    conceptUrlRef.current = null;
+    interactionStartRef.current = messages.length;
+    setStatusLog([]);
+    sendMessage({
+      text: "Regenerate the concept with a different style and approach. Try a completely different composition. Here is the previous concept for reference — make something noticeably different.",
+      files: url
+        ? [
+            {
+              type: "file" as const,
+              mediaType: "image/png",
+              url,
+            },
+          ]
+        : undefined,
+    });
+  }, [sendMessage, messages.length]);
 
   return {
     sendEdit,
@@ -261,20 +334,22 @@ export function useAiEdit({
     statusText: isLoading || statusLog.length > 0 ? statusText : "",
     aiText: isLoading || aiText ? aiText : "",
     hasHistory: messages.length > 0 && !isLoading,
+    conceptImage,
+    dismissConcept,
+    confirmConcept,
+    regenConcept,
   };
 }
 
 const TOOL_LABELS: Record<string, string> = {
   setBackgroundColor: "Background color",
   generateBackground: "Generating background",
+  generateIconConcept: "Generating concept",
   updateElement: "Updating element",
   addTextElement: "Adding text",
   addAccentElement: "Adding shape",
-  addScreenshotElement: "Adding screenshot",
-  changeScreenshotImage: "Changing screenshot",
   addImageElement: "Generating image layer",
   removeElement: "Removing element",
-  viewScreenshot: "Viewing screenshot",
   viewCanvasPreview: "Viewing canvas",
   reorderElement: "Reordering layer",
 };
@@ -316,23 +391,6 @@ function dispatchToolResult(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         payload: result as any,
       });
-      break;
-    case "addScreenshotElement":
-      if (!result.error) {
-        dispatch({
-          type: "ADD_ELEMENT",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          payload: result as any,
-        });
-      }
-      break;
-    case "changeScreenshotImage":
-      if (!result.error) {
-        dispatch({
-          type: "UPDATE_ELEMENT",
-          payload: result as { id: string } & Record<string, unknown>,
-        });
-      }
       break;
     case "removeElement":
       dispatch({

@@ -33,8 +33,43 @@ export const IMAGE_PRESETS = {
 
 export type PresetKey = keyof typeof IMAGE_PRESETS;
 
+export const ICON_EXPORT_SIZES = {
+  ios: [
+    { name: "App Store", size: 1024 },
+    { name: "iPhone @3x", size: 180 },
+    { name: "iPhone @2x", size: 120 },
+    { name: "iPad Pro @2x", size: 167 },
+    { name: "iPad @2x", size: 152 },
+    { name: "Spotlight @3x", size: 87 },
+    { name: "Spotlight @2x", size: 80 },
+    { name: "Settings @3x", size: 60 },
+    { name: "Settings @2x", size: 40 },
+  ],
+  macos: [
+    { name: "1024", size: 1024 },
+    { name: "512", size: 512 },
+    { name: "256", size: 256 },
+    { name: "128", size: 128 },
+    { name: "64", size: 64 },
+    { name: "32", size: 32 },
+    { name: "16", size: 16 },
+  ],
+  android: [
+    { name: "Play Store", size: 512 },
+    { name: "xxxhdpi", size: 192 },
+    { name: "xxhdpi", size: 144 },
+    { name: "xhdpi", size: 96 },
+    { name: "hdpi", size: 72 },
+    { name: "mdpi", size: 48 },
+  ],
+  watchos: [{ name: "App Store", size: 1024 }],
+} as const;
+
+export type IconPlatform = keyof typeof ICON_EXPORT_SIZES;
+
 export const AI_CONFIG = {
-  backgroundModel: "google/gemini-3.1-flash-image-preview",
+  imageModel: "google/gemini-3.1-flash-image-preview",
+  iconImageModel: "openai/gpt-image-1.5",
   textModel: "google/gemini-3.1-flash-image-preview",
   editModel: "minimax/minimax-m2.5",
 } as const;

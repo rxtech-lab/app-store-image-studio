@@ -46,6 +46,26 @@ export const screenshots = sqliteTable("screenshots", {
     .default(sql`(datetime('now'))`),
 });
 
+export const iconProjects = sqliteTable("icon_projects", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  size: integer("size").notNull().default(1024),
+  canvasState: text("canvas_state", { mode: "json" }).$type<
+    import("@/lib/canvas/types").CanvasState
+  >(),
+  thumbnailUrl: text("thumbnail_url"),
+  aiMessages: text("ai_messages", { mode: "json" }).$type<unknown[]>(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`)
+    .$onUpdate(() => sql`(datetime('now'))`),
+});
+
 export const templates = sqliteTable("templates", {
   id: text("id").primaryKey(),
   sectionId: text("section_id")

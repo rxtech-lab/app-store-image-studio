@@ -1,8 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Markdown from "react-markdown";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, Send, Square, X, Trash2 } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  Send,
+  Square,
+  X,
+  Trash2,
+  Check,
+  RefreshCw,
+} from "lucide-react";
 
 interface AiPromptBarProps {
   onSend: (prompt: string) => void;
@@ -10,7 +21,11 @@ interface AiPromptBarProps {
   onClearHistory?: () => void;
   isLoading: boolean;
   statusText?: string;
+  aiText?: string;
   hasHistory?: boolean;
+  conceptImage?: string | null;
+  onConfirmConcept?: () => void;
+  onRegenConcept?: () => void;
 }
 
 export function AiPromptBar({
@@ -19,7 +34,11 @@ export function AiPromptBar({
   onClearHistory,
   isLoading,
   statusText,
+  aiText,
   hasHistory,
+  conceptImage,
+  onConfirmConcept,
+  onRegenConcept,
 }: AiPromptBarProps) {
   const [prompt, setPrompt] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -69,12 +88,77 @@ export function AiPromptBar({
 
   return (
     <div className="flex flex-col gap-1.5 bg-card border rounded-xl px-4 py-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-2xl">
-      {/* Response text */}
-      {statusText && (
-        <p className="text-xs text-muted-foreground leading-relaxed animate-in fade-in duration-200">
-          {statusText}
-        </p>
+      {/* Concept preview */}
+      {conceptImage && (
+        <div className="flex items-center gap-3 animate-in fade-in duration-200">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={conceptImage}
+            alt="Icon concept"
+            className="w-20 h-20 rounded-lg border object-contain shrink-0"
+          />
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <span className="text-xs font-medium text-muted-foreground">
+              Concept preview
+            </span>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={onRegenConcept}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Regen
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={onConfirmConcept}
+              >
+                <Check className="h-3 w-3 mr-1" />
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
+      {/* Tool status labels */}
+      <AnimatePresence>
+        {statusText && (
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-xs text-muted-foreground leading-relaxed"
+          >
+            {statusText}
+          </motion.p>
+        )}
+      </AnimatePresence>
+      {/* AI text response rendered as markdown chunks */}
+      <AnimatePresence>
+        {aiText && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="max-h-48 overflow-y-auto text-xs text-foreground leading-relaxed prose prose-xs prose-neutral dark:prose-invert [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5"
+          >
+            {aiText.split(/\n\n+/).map((chunk, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: i * 0.08 }}
+              >
+                <Markdown>{chunk}</Markdown>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Input row */}
       <div className="flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-primary shrink-0" />

@@ -63,11 +63,24 @@ export interface ImageElement {
   cornerRadius: number;
 }
 
+export interface GroupElement {
+  id: string;
+  type: "group";
+  name?: string;
+  children: CanvasElement[];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
 export type CanvasElement =
   | ScreenshotElement
   | TextElement
   | AccentElement
-  | ImageElement;
+  | ImageElement
+  | GroupElement;
 
 export interface CanvasState {
   width: number;
@@ -89,4 +102,6 @@ export type CanvasAction =
       payload: { id: string; direction: "up" | "down" };
     }
   | { type: "SET_ELEMENTS"; payload: CanvasElement[] }
-  | { type: "DUPLICATE_ELEMENT"; payload: string };
+  | { type: "DUPLICATE_ELEMENT"; payload: string }
+  | { type: "GROUP_ELEMENTS"; payload: string[] }
+  | { type: "UNGROUP_ELEMENT"; payload: string };

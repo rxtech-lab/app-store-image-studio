@@ -1,5 +1,10 @@
 import { relations } from "drizzle-orm";
-import { projects, screenshotSections, screenshots, templates } from "./schema";
+import {
+  projects,
+  screenshotSections,
+  screenshots,
+  templates,
+} from "./schema";
 
 export const projectsRelations = relations(projects, ({ many }) => ({
   sections: many(screenshotSections),

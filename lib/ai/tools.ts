@@ -12,6 +12,7 @@ export const generateBackgroundSchema = z.object({
 
 export const updateElementSchema = z.object({
   id: z.string().describe("The element ID to update"),
+  name: z.string().optional(),
   x: z.number().optional(),
   y: z.number().optional(),
   width: z.number().optional(),
@@ -54,6 +55,10 @@ export const updateElementSchema = z.object({
 });
 
 export const addTextElementSchema = z.object({
+  name: z
+    .string()
+    .describe("Descriptive name for this text layer")
+    .optional(),
   text: z.string(),
   fontSize: z.number().default(100),
   fontFamily: z.string().default("Arial"),
@@ -84,6 +89,10 @@ export const addTextElementSchema = z.object({
 });
 
 export const addAccentElementSchema = z.object({
+  name: z
+    .string()
+    .describe("Descriptive name for this shape layer")
+    .optional(),
   shape: z.enum(["rect", "circle", "roundedRect"]).default("roundedRect"),
   fill: z.string().default("#ffffff20"),
   cornerRadius: z.number().default(20),
@@ -152,10 +161,34 @@ export const reorderElementSchema = z.object({
     ),
 });
 
+export const generateIconConceptSchema = z.object({
+  prompt: z
+    .string()
+    .describe(
+      "Description of the complete icon to generate as a concept reference. Describe the full icon including background, main subject, and details.",
+    ),
+  canvasPreviewUrl: z
+    .string()
+    .describe(
+      "URL of the current canvas preview image (from viewCanvasPreview result). Pass this when the canvas already has layers so the concept builds on the existing design.",
+    )
+    .optional(),
+});
+
 export const addImageElementSchema = z.object({
+  name: z
+    .string()
+    .describe("Descriptive name for this image layer")
+    .optional(),
   prompt: z
     .string()
     .describe("Description of the image to generate for this layer"),
+  referenceImageUrl: z
+    .string()
+    .describe(
+      "URL of a reference image (e.g. the concept image) to guide the generation style and composition",
+    )
+    .optional(),
   x: z.number(),
   y: z.number(),
   width: z.number(),

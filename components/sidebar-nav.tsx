@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ImageIcon } from "lucide-react";
+import { LayoutDashboard, ImageIcon, Gem } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -11,6 +11,11 @@ const navItems = [
     href: "/appstore-marketing-image",
     label: "App Store Marketing",
     icon: ImageIcon,
+  },
+  {
+    href: "/icon-generation",
+    label: "Icon Generation",
+    icon: Gem,
   },
 ];
 

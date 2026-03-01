@@ -9,6 +9,7 @@ import {
   Text,
   Image,
   Transformer,
+  Group,
 } from "react-konva";
 import type Konva from "konva";
 import type {
@@ -18,6 +19,7 @@ import type {
   TextElement,
   AccentElement,
   ImageElement,
+  GroupElement,
   CanvasAction,
 } from "@/lib/canvas/types";
 
@@ -30,7 +32,7 @@ interface Screenshot {
 interface CanvasEditorProps {
   state: CanvasState;
   dispatch: React.Dispatch<CanvasAction>;
-  selectedId: string | null;
+  selectedIds: string[];
   onSelect: (id: string | null) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
   screenshots?: Screenshot[];
@@ -102,6 +104,7 @@ function ScreenshotNode({
   return (
     <>
       <Image
+        id={el.id}
         ref={shapeRef}
         image={image ?? undefined}
         x={el.x}
@@ -166,6 +169,7 @@ function TextNode({
   return (
     <>
       <Text
+        id={el.id}
         ref={shapeRef}
         text={el.text}
         fontSize={el.fontSize}
@@ -305,6 +309,7 @@ function ImageNode({
   return (
     <>
       <Image
+        id={el.id}
         ref={shapeRef}
         image={image ?? undefined}
         x={el.x}
@@ -381,6 +386,7 @@ function AccentNode({
   return (
     <>
       <ShapeComponent
+        id={el.id}
         ref={shapeRef as React.RefObject<never>}
         fill={el.fill}
         rotation={el.rotation}
@@ -411,6 +417,116 @@ function AccentNode({
   );
 }
 
+function GroupNode({
+  el,
+  isSelected,
+  onSelect,
+  onChange,
+}: {
+  el: GroupElement;
+  isSelected: boolean;
+  onSelect: () => void;
+  onChange: (attrs: Partial<GroupElement>) => void;
+}) {
+  const groupRef = useRef<Konva.Group>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+
+  useEffect(() => {
+    if (isSelected && trRef.current && groupRef.current) {
+      trRef.current.nodes([groupRef.current]);
+      trRef.current.getLayer()?.batchDraw();
+    }
+  }, [isSelected]);
+
+  return (
+    <>
+      <Group
+        id={el.id}
+        ref={groupRef}
+        x={el.x}
+        y={el.y}
+        rotation={el.rotation}
+        draggable
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => {
+          onChange({ x: e.target.x(), y: e.target.y() });
+        }}
+        onTransformEnd={() => {
+          const node = groupRef.current!;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(10, el.width * scaleX),
+            height: Math.max(10, el.height * scaleY),
+            rotation: node.rotation(),
+          });
+        }}
+      >
+        {el.children.map((child) => {
+          switch (child.type) {
+            case "screenshot":
+              return (
+                <ScreenshotNode
+                  key={child.id}
+                  el={child}
+                  isSelected={false}
+                  onSelect={onSelect}
+                  onChange={() => {}}
+                />
+              );
+            case "text":
+              return (
+                <TextNode
+                  key={child.id}
+                  el={child}
+                  isSelected={false}
+                  onSelect={onSelect}
+                  onChange={() => {}}
+                />
+              );
+            case "accent":
+              return (
+                <AccentNode
+                  key={child.id}
+                  el={child}
+                  isSelected={false}
+                  onSelect={onSelect}
+                  onChange={() => {}}
+                />
+              );
+            case "image":
+              return (
+                <ImageNode
+                  key={child.id}
+                  el={child}
+                  isSelected={false}
+                  onSelect={onSelect}
+                  onChange={() => {}}
+                />
+              );
+            case "group":
+              return (
+                <GroupNode
+                  key={child.id}
+                  el={child}
+                  isSelected={false}
+                  onSelect={onSelect}
+                  onChange={() => {}}
+                />
+              );
+          }
+        })}
+      </Group>
+      {isSelected && <Transformer ref={trRef} rotateEnabled />}
+    </>
+  );
+}
+
 interface ContextMenuState {
   visible: boolean;
   x: number;
@@ -421,7 +537,7 @@ interface ContextMenuState {
 export function CanvasEditor({
   state,
   dispatch,
-  selectedId,
+  selectedIds,
   onSelect,
   stageRef,
   screenshots = [],
@@ -514,10 +630,17 @@ export function CanvasEditor({
       className="w-full h-full flex items-center justify-center relative"
     >
       <div
-        className="border rounded-lg overflow-hidden bg-muted inline-block"
+        className="border rounded-lg overflow-hidden inline-block"
         style={{
           width: state.width * scale,
           height: state.height * scale,
+          ...(state.backgroundColor === "transparent"
+            ? {
+                backgroundImage:
+                  "repeating-conic-gradient(#d0d0d0 0% 25%, #fff 0% 50%)",
+                backgroundSize: `${20 * scale}px ${20 * scale}px`,
+              }
+            : { background: "var(--color-muted)" }),
         }}
       >
         <Stage
@@ -531,13 +654,16 @@ export function CanvasEditor({
         >
           <Layer>
             {/* Background */}
-            <Rect
-              x={0}
-              y={0}
-              width={state.width}
-              height={state.height}
-              fill={state.backgroundColor}
-            />
+            {state.backgroundColor !== "transparent" && (
+              <Rect
+                x={0}
+                y={0}
+                width={state.width}
+                height={state.height}
+                fill={state.backgroundColor}
+                listening={false}
+              />
+            )}
             {bgImage && (
               <Image
                 image={bgImage}
@@ -545,6 +671,7 @@ export function CanvasEditor({
                 y={0}
                 width={state.width}
                 height={state.height}
+                listening={false}
               />
             )}
 
@@ -556,7 +683,7 @@ export function CanvasEditor({
                     <ScreenshotNode
                       key={el.id}
                       el={el}
-                      isSelected={selectedId === el.id}
+                      isSelected={selectedIds.includes(el.id)}
                       onSelect={() => onSelect(el.id)}
                       onChange={(attrs) => handleChange(el.id, attrs)}
                       onContextMenu={(e) =>
@@ -569,7 +696,7 @@ export function CanvasEditor({
                     <TextNode
                       key={el.id}
                       el={el}
-                      isSelected={selectedId === el.id}
+                      isSelected={selectedIds.includes(el.id)}
                       onSelect={() => onSelect(el.id)}
                       onChange={(attrs) => handleChange(el.id, attrs)}
                     />
@@ -579,7 +706,7 @@ export function CanvasEditor({
                     <AccentNode
                       key={el.id}
                       el={el}
-                      isSelected={selectedId === el.id}
+                      isSelected={selectedIds.includes(el.id)}
                       onSelect={() => onSelect(el.id)}
                       onChange={(attrs) => handleChange(el.id, attrs)}
                     />
@@ -589,7 +716,17 @@ export function CanvasEditor({
                     <ImageNode
                       key={el.id}
                       el={el}
-                      isSelected={selectedId === el.id}
+                      isSelected={selectedIds.includes(el.id)}
+                      onSelect={() => onSelect(el.id)}
+                      onChange={(attrs) => handleChange(el.id, attrs)}
+                    />
+                  );
+                case "group":
+                  return (
+                    <GroupNode
+                      key={el.id}
+                      el={el}
+                      isSelected={selectedIds.includes(el.id)}
                       onSelect={() => onSelect(el.id)}
                       onChange={(attrs) => handleChange(el.id, attrs)}
                     />

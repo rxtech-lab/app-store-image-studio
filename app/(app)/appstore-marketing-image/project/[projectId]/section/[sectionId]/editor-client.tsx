@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import type Konva from "konva";
 import type { PresetKey } from "@/lib/settings";
 import type { CanvasState } from "@/lib/canvas/types";
 import type { UIMessage } from "ai";
+import { nanoid } from "nanoid";
 import { getDefaultCanvasState } from "@/lib/canvas/defaults";
+import { uploadBackgroundImage } from "@/actions/templates";
 import { useCanvasState } from "@/hooks/use-canvas-state";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { useAiEdit } from "@/hooks/use-ai-edit";
@@ -71,9 +73,10 @@ export function SectionEditorClient({
     templates[0] ?? null,
   );
   const stageRef = useRef<Konva.Stage | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showLayers, setShowLayers] = useState(true);
   const [showTemplates, setShowTemplates] = useState(true);
+  const [isAddingImage, setIsAddingImage] = useState(false);
 
   const defaultState = getDefaultCanvasState(
     presetKey,
@@ -105,6 +108,11 @@ export function SectionEditorClient({
     handleStateSaved,
   );
 
+  const handleSelect = useCallback(
+    (id: string | null) => setSelectedIds(id ? [id] : []),
+    [],
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -120,18 +128,23 @@ export function SectionEditorClient({
       } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         undo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        setSelectedIds(state.elements.map((el) => el.id));
       } else if (e.key === "Backspace" || e.key === "Delete") {
-        if (selectedId) {
+        if (selectedIds.length > 0) {
           e.preventDefault();
-          dispatch({ type: "REMOVE_ELEMENT", payload: selectedId });
-          setSelectedId(null);
+          for (const id of selectedIds) {
+            dispatch({ type: "REMOVE_ELEMENT", payload: id });
+          }
+          setSelectedIds([]);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, undo, dispatch, saveNow]);
+  }, [selectedIds, undo, dispatch, saveNow, state.elements]);
 
   const {
     sendEdit,
@@ -139,6 +152,7 @@ export function SectionEditorClient({
     clearHistory,
     isLoading: aiLoading,
     statusText,
+    aiText,
     hasHistory,
   } = useAiEdit({
     templateId: activeTemplate?.id ?? "",
@@ -151,8 +165,52 @@ export function SectionEditorClient({
     onComplete: saveNow,
   });
 
+  const handleAddImage = useCallback(
+    async (file: File) => {
+      setIsAddingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const url = await uploadBackgroundImage(formData);
+
+        const img = new window.Image();
+        img.src = url;
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+        });
+
+        const maxW = state.width * 0.6;
+        const maxH = state.height * 0.6;
+        const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+        const w = img.naturalWidth * scale;
+        const h = img.naturalHeight * scale;
+
+        dispatch({
+          type: "ADD_ELEMENT",
+          payload: {
+            id: nanoid(),
+            type: "image",
+            imageUrl: url,
+            x: (state.width - w) / 2,
+            y: (state.height - h) / 2,
+            width: w,
+            height: h,
+            rotation: 0,
+            opacity: 1,
+            cornerRadius: 0,
+          },
+        });
+      } finally {
+        setIsAddingImage(false);
+      }
+    },
+    [state.width, state.height, dispatch],
+  );
+
   const selectedElement =
-    state.elements.find((el) => el.id === selectedId) ?? null;
+    selectedIds.length === 1
+      ? (state.elements.find((el) => el.id === selectedIds[0]) ?? null)
+      : null;
 
   const handleTemplateSelect = (template: Template) => {
     setActiveTemplate(template);
@@ -160,7 +218,7 @@ export function SectionEditorClient({
       template.canvasState ??
       getDefaultCanvasState(presetKey, customWidth, customHeight);
     dispatch({ type: "SET_STATE", payload: canvasState });
-    setSelectedId(null);
+    setSelectedIds([]);
   };
 
   return (
@@ -235,6 +293,8 @@ export function SectionEditorClient({
               onToggleLayers={() => setShowLayers((v) => !v)}
               showTemplates={showTemplates}
               onToggleTemplates={() => setShowTemplates((v) => !v)}
+              onAddImage={handleAddImage}
+              isAddingImage={isAddingImage}
             />
             <div className="w-px h-5 bg-border" />
             {/* Screenshots dialog */}
@@ -276,8 +336,8 @@ export function SectionEditorClient({
             {showLayers && (
               <LayersPanel
                 elements={state.elements}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
                 dispatch={dispatch}
                 backgroundImageUrl={state.backgroundImageUrl}
                 onRemoveBackgroundImage={() =>
@@ -290,8 +350,8 @@ export function SectionEditorClient({
               <CanvasEditor
                 state={state}
                 dispatch={dispatch}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
                 stageRef={stageRef}
                 screenshots={screenshots}
               />
@@ -312,6 +372,7 @@ export function SectionEditorClient({
                   onClearHistory={clearHistory}
                   isLoading={aiLoading}
                   statusText={statusText}
+                  aiText={aiText}
                   hasHistory={hasHistory}
                 />
               </div>

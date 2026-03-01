@@ -1,6 +1,5 @@
 import {
   streamText,
-  generateText,
   tool,
   zodSchema,
   convertToModelMessages,
@@ -12,6 +11,8 @@ import { nanoid } from "nanoid";
 import { auth } from "@/lib/auth";
 import { uploadBlob } from "@/lib/blob";
 import { AI_CONFIG } from "@/lib/settings";
+import { generateAndUploadImage } from "@/lib/ai/generate-image";
+import { summarizeCanvasState } from "@/lib/ai/summarize-canvas";
 import {
   setBackgroundColorSchema,
   generateBackgroundSchema,
@@ -44,9 +45,9 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const canvasState = body.canvasState as CanvasState;
-  const canvasPreviewBase64 = body.canvasPreviewBase64 as string | undefined;
   const screenshots = (body.screenshots ?? []) as AvailableScreenshot[];
   const projectDescription = body.projectDescription as string | undefined;
+  const projectId = body.projectId as string | undefined;
   const uiMessages = body.messages as UIMessage[];
 
   const systemPrompt = buildSystemPrompt(
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
     screenshots,
     projectDescription,
   );
-  const userId = session.user.id;
+  const blobPrefix = projectId ?? session.user.id;
 
   const messages = await convertToModelMessages(
     // Filter out malformed user messages with no content
@@ -84,22 +85,11 @@ export async function POST(req: Request) {
           "Generate a background image using AI and set it as the canvas background. Use this when the user wants an image background, not a solid color.",
         inputSchema: zodSchema(generateBackgroundSchema),
         execute: async ({ prompt: bgPrompt }) => {
-          const genResult = await generateText({
-            model: gateway(AI_CONFIG.backgroundModel),
+          const url = await generateAndUploadImage({
             prompt: `Clean, minimal App Store screenshot background: ${bgPrompt}. Simple smooth gradient or solid color with subtle texture. Apple-style, elegant, not busy or complex. No text, no objects, no patterns. Just a clean backdrop.`,
+            filename: "background.png",
+            blobPath: `backgrounds/${blobPrefix}/${Date.now()}.png`,
           });
-          const imageFile = genResult.files.find((f) =>
-            f.mediaType?.startsWith("image/"),
-          );
-          if (!imageFile) throw new Error("No image generated");
-          const buffer = Buffer.from(imageFile.uint8Array);
-          const file = new File([buffer], "background.png", {
-            type: "image/png",
-          });
-          const url = await uploadBlob(
-            file,
-            `backgrounds/${userId}/${Date.now()}.png`,
-          );
           return { url };
         },
       }),
@@ -184,14 +174,10 @@ export async function POST(req: Request) {
           // First check available uploaded screenshots
           const screenshot = screenshots.find((s) => s.id === screenshotId);
           if (screenshot) {
-            const res = await fetch(screenshot.imageUrl);
-            if (!res.ok) return { error: "Failed to fetch screenshot image" };
-            const buf = Buffer.from(await res.arrayBuffer());
             return {
               id: screenshot.id,
               name: screenshot.originalFilename,
-              base64: buf.toString("base64"),
-              mediaType: res.headers.get("content-type") ?? "image/png",
+              imageUrl: screenshot.imageUrl,
             };
           }
           // Fall back to canvas elements
@@ -201,32 +187,10 @@ export async function POST(req: Request) {
           if (!el || el.type !== "screenshot") {
             return { error: "Screenshot not found" };
           }
-          const res = await fetch(el.imageUrl);
-          if (!res.ok) return { error: "Failed to fetch screenshot image" };
-          const buf = Buffer.from(await res.arrayBuffer());
           return {
             id: el.id,
             name: el.name ?? el.id,
-            base64: buf.toString("base64"),
-            mediaType: res.headers.get("content-type") ?? "image/png",
-          };
-        },
-        toModelOutput: async ({ output }) => {
-          const o = output as Record<string, unknown>;
-          if (o.error) return { type: "text", value: String(o.error) };
-          return {
-            type: "content",
-            value: [
-              {
-                type: "file-data" as const,
-                data: o.base64 as string,
-                mediaType: o.mediaType as string,
-              },
-              {
-                type: "text" as const,
-                text: `Screenshot "${o.name}"`,
-              },
-            ],
+            imageUrl: el.imageUrl,
           };
         },
       }),
@@ -241,22 +205,11 @@ export async function POST(req: Request) {
           "Generate an image using AI and add it as an image layer element on the canvas. Unlike generateBackground, this places the image as a moveable, resizable canvas element rather than the background.",
         inputSchema: zodSchema(addImageElementSchema),
         execute: async ({ prompt: imgPrompt, ...params }) => {
-          const genResult = await generateText({
-            model: gateway(AI_CONFIG.backgroundModel),
+          const url = await generateAndUploadImage({
             prompt: `${imgPrompt}. Clean, polished image suitable for App Store marketing. No text.`,
+            filename: "image-layer.png",
+            blobPath: `images/${blobPrefix}/${Date.now()}.png`,
           });
-          const imageFile = genResult.files.find((f) =>
-            f.mediaType?.startsWith("image/"),
-          );
-          if (!imageFile) throw new Error("No image generated");
-          const buffer = Buffer.from(imageFile.uint8Array);
-          const file = new File([buffer], "image-layer.png", {
-            type: "image/png",
-          });
-          const url = await uploadBlob(
-            file,
-            `images/${userId}/${Date.now()}.png`,
-          );
           return {
             ...params,
             id: nanoid(),
@@ -269,85 +222,11 @@ export async function POST(req: Request) {
         description:
           "View a preview image of the current canvas design. Use this to see the overall layout and visual result before or after making changes.",
         inputSchema: zodSchema(viewCanvasPreviewSchema),
-        execute: async () => {
-          if (!canvasPreviewBase64) {
-            return { error: "Canvas preview not available" };
-          }
-          return { base64: canvasPreviewBase64 };
-        },
-        toModelOutput: async ({ output }) => {
-          const o = output as Record<string, unknown>;
-          if (o.error) return { type: "text", value: String(o.error) };
-          return {
-            type: "content",
-            value: [
-              {
-                type: "file-data" as const,
-                data: o.base64 as string,
-                mediaType: "image/png",
-              },
-              {
-                type: "text" as const,
-                text: `Current canvas preview (${canvasState.width}x${canvasState.height}px)`,
-              },
-            ],
-          };
-        },
       }),
     },
   });
 
   return result.toUIMessageStreamResponse();
-}
-
-// --- Canvas state summary ---
-
-function summarizeCanvasState(canvasState: CanvasState): string {
-  const bg = canvasState.backgroundImageUrl
-    ? `image (${canvasState.backgroundImageUrl.split("/").pop()})`
-    : canvasState.backgroundColor;
-
-  const lines: string[] = [
-    `Canvas: ${canvasState.width}x${canvasState.height}px | bg: ${bg}`,
-    ``,
-    `Layers (bottom → top):`,
-  ];
-
-  if (canvasState.elements.length === 0) {
-    lines.push("  (empty)");
-  } else {
-    canvasState.elements.forEach((el, i) => {
-      const prefix = `${i + 1}.`;
-      const pos = `pos:(${Math.round(el.x)},${Math.round(el.y)}) size:${Math.round(el.width)}x${Math.round(el.height)}`;
-      const label = el.name ? ` "${el.name}"` : "";
-      if (el.type === "text") {
-        const style = [
-          `${el.fontSize}px`,
-          el.fontWeight !== "normal" ? el.fontWeight : "",
-          el.fontStyle !== "normal" ? el.fontStyle : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        const preview =
-          el.text.length > 40 ? el.text.slice(0, 40) + "…" : el.text;
-        lines.push(
-          `  ${prefix} [text]${label} id:"${el.id}" | "${preview}" | ${style} ${el.fill} | ${pos}`,
-        );
-      } else if (el.type === "screenshot") {
-        lines.push(`  ${prefix} [screenshot]${label} id:"${el.id}" | ${pos}`);
-      } else if (el.type === "accent") {
-        lines.push(
-          `  ${prefix} [accent/${el.shape}]${label} id:"${el.id}" | fill:${el.fill} | ${pos}`,
-        );
-      } else if (el.type === "image") {
-        lines.push(
-          `  ${prefix} [image]${label} id:"${el.id}" | opacity:${el.opacity} | ${pos}`,
-        );
-      }
-    });
-  }
-
-  return lines.join("\n");
 }
 
 function buildSystemPrompt(
