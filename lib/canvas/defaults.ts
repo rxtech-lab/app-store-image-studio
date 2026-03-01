@@ -23,6 +23,15 @@ export function getDefaultCanvasState(
   };
 }
 
+export function getDefaultIconCanvasState(size: number): CanvasState {
+  return {
+    width: size,
+    height: size,
+    backgroundColor: "#1a1a2e",
+    elements: [],
+  };
+}
+
 export function resolvePresetDimensions(
   presetKey: string,
   customWidth?: number | null,

@@ -7,6 +7,13 @@ import type { CanvasElement, CanvasAction } from "@/lib/canvas/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -23,6 +30,7 @@ import {
   GripVertical,
   ImageOff,
   Wallpaper,
+  Pencil,
 } from "lucide-react";
 
 function getElementDisplayName(el: CanvasElement): string {
@@ -192,85 +200,115 @@ function LayerItem({
   };
 
   return (
-    <Reorder.Item
-      value={element}
-      className={cn(
-        "flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group",
-        "hover:bg-muted/50",
-        isSelected && "bg-primary/10 ring-1 ring-primary/30",
-      )}
-      onClick={onSelect}
-      onDoubleClick={handleDoubleClick}
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: "auto" }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.15 }}
-    >
-      {/* Drag handle */}
-      <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <Reorder.Item
+          value={element}
+          className={cn(
+            "flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group",
+            "hover:bg-muted/50",
+            isSelected && "bg-primary/10 ring-1 ring-primary/30",
+          )}
+          onClick={onSelect}
+          onDoubleClick={handleDoubleClick}
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          {/* Drag handle */}
+          <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
 
-      {/* Type icon */}
-      <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          {/* Type icon */}
+          <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
 
-      {/* Name */}
-      {isEditing ? (
-        <Input
-          ref={inputRef}
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          onBlur={commitRename}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commitRename();
-            if (e.key === "Escape") setIsEditing(false);
+          {/* Name */}
+          {isEditing ? (
+            <Input
+              ref={inputRef}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setIsEditing(false);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="h-5 text-xs px-1 flex-1 min-w-0"
+            />
+          ) : (
+            <span className="text-xs truncate flex-1 min-w-0">
+              {getElementDisplayName(element)}
+            </span>
+          )}
+
+          {/* Action buttons (visible on hover) */}
+          <TooltipProvider>
+            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="h-5 w-5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dispatch({ type: "DUPLICATE_ELEMENT", payload: element.id });
+                    }}
+                  >
+                    <Copy className="h-2.5 w-2.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Duplicate</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="h-5 w-5 text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm("Delete this element?")) {
+                        dispatch({ type: "REMOVE_ELEMENT", payload: element.id });
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-2.5 w-2.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Delete</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </Reorder.Item>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={handleDoubleClick}>
+          <Pencil className="h-3.5 w-3.5 mr-2" />
+          Rename
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() =>
+            dispatch({ type: "DUPLICATE_ELEMENT", payload: element.id })
+          }
+        >
+          <Copy className="h-3.5 w-3.5 mr-2" />
+          Duplicate
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={() => {
+            if (window.confirm("Delete this element?")) {
+              dispatch({ type: "REMOVE_ELEMENT", payload: element.id });
+            }
           }}
-          onClick={(e) => e.stopPropagation()}
-          className="h-5 text-xs px-1 flex-1 min-w-0"
-        />
-      ) : (
-        <span className="text-xs truncate flex-1 min-w-0">
-          {getElementDisplayName(element)}
-        </span>
-      )}
-
-      {/* Action buttons (visible on hover) */}
-      <TooltipProvider>
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="h-5 w-5"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  dispatch({ type: "DUPLICATE_ELEMENT", payload: element.id });
-                }}
-              >
-                <Copy className="h-2.5 w-2.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Duplicate</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="h-5 w-5 text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (window.confirm("Delete this element?")) {
-                    dispatch({ type: "REMOVE_ELEMENT", payload: element.id });
-                  }
-                }}
-              >
-                <Trash2 className="h-2.5 w-2.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Delete</TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
-    </Reorder.Item>
+        >
+          <Trash2 className="h-3.5 w-3.5 mr-2" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

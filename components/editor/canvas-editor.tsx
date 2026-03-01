@@ -514,10 +514,17 @@ export function CanvasEditor({
       className="w-full h-full flex items-center justify-center relative"
     >
       <div
-        className="border rounded-lg overflow-hidden bg-muted inline-block"
+        className="border rounded-lg overflow-hidden inline-block"
         style={{
           width: state.width * scale,
           height: state.height * scale,
+          ...(state.backgroundColor === "transparent"
+            ? {
+                backgroundImage:
+                  "repeating-conic-gradient(#d0d0d0 0% 25%, #fff 0% 50%)",
+                backgroundSize: `${20 * scale}px ${20 * scale}px`,
+              }
+            : { background: "var(--color-muted)" }),
         }}
       >
         <Stage
@@ -531,13 +538,15 @@ export function CanvasEditor({
         >
           <Layer>
             {/* Background */}
-            <Rect
-              x={0}
-              y={0}
-              width={state.width}
-              height={state.height}
-              fill={state.backgroundColor}
-            />
+            {state.backgroundColor !== "transparent" && (
+              <Rect
+                x={0}
+                y={0}
+                width={state.width}
+                height={state.height}
+                fill={state.backgroundColor}
+              />
+            )}
             {bgImage && (
               <Image
                 image={bgImage}
