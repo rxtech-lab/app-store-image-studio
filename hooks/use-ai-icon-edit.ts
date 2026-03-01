@@ -75,6 +75,8 @@ export function useAiIconEdit({
   initialMessagesRef.current = initialMessagesProp;
 
   const [statusLog, setStatusLog] = useState<string[]>([]);
+  const [conceptImage, setConceptImage] = useState<string | null>(null);
+  const conceptUrlRef = useRef<string | null>(null);
   const interactionStartRef = useRef(0);
 
   const capturePreview = useCallback(() => {
@@ -98,10 +100,33 @@ export function useAiIconEdit({
     [capturePreview, projectDescription],
   );
 
+  const shouldAutoSend = useCallback(
+    ({ messages: msgs }: { messages: UIMessage[] }) => {
+      if (!lastAssistantMessageIsCompleteWithToolCalls({ messages: msgs }))
+        return false;
+      // Pause after concept generation so user can confirm or regen
+      const lastMsg = msgs[msgs.length - 1];
+      if (lastMsg?.role === "assistant") {
+        const toolParts = lastMsg.parts.filter((p) => isToolUIPart(p));
+        if (
+          toolParts.length > 0 &&
+          toolParts.every((p) => getToolName(p) === "generateIconConcept")
+        ) {
+          return false;
+        }
+      }
+      return true;
+    },
+    [],
+  );
+
   const { messages, sendMessage, status, setMessages, stop } = useChat({
     transport,
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    sendAutomaticallyWhen: shouldAutoSend,
   });
+
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
 
   useEffect(() => {
     processedToolCalls.current = new Set();
@@ -146,12 +171,23 @@ export function useAiIconEdit({
             !processedToolCalls.current.has(p.toolCallId as string)
           ) {
             processedToolCalls.current.add(p.toolCallId as string);
-            dispatchToolResult(
-              toolName,
-              output,
-              dispatch,
-              canvasStateRef.current,
-            );
+            if (toolName === "generateIconConcept" && output.url) {
+              const url = output.url as string;
+              conceptUrlRef.current = url;
+              setConceptImage(url);
+              // Stop the stream and strip base64 from messages to prevent context bloat
+              stopRef.current();
+              queueMicrotask(() => {
+                setMessages((prev) => sanitizeForStorage(prev));
+              });
+            } else {
+              dispatchToolResult(
+                toolName,
+                output,
+                dispatch,
+                canvasStateRef.current,
+              );
+            }
           }
 
           newLogs.push(output ? name : `${name}...`);
@@ -175,9 +211,22 @@ export function useAiIconEdit({
 
   const sendEdit = useCallback(
     (prompt: string) => {
+      const url = conceptUrlRef.current;
+      if (url) {
+        // User typed feedback while concept is showing — treat as guided regen
+        setConceptImage(null);
+        conceptUrlRef.current = null;
+      }
       interactionStartRef.current = messages.length;
       setStatusLog([]);
-      sendMessage({ text: prompt });
+      sendMessage({
+        text: url
+          ? `${prompt}. Here is the previous concept for reference — regenerate based on this feedback.`
+          : prompt,
+        files: url
+          ? [{ type: "file" as const, mediaType: "image/png", url }]
+          : undefined,
+      });
     },
     [sendMessage, messages.length],
   );
@@ -188,6 +237,8 @@ export function useAiIconEdit({
 
   const clearHistory = useCallback(() => {
     processedToolCalls.current.clear();
+    conceptUrlRef.current = null;
+    setConceptImage(null);
     setStatusLog([]);
     setMessages([]);
     interactionStartRef.current = 0;
@@ -217,6 +268,48 @@ export function useAiIconEdit({
   const statusText =
     isLoading && statusLog.length === 0 ? "Thinking..." : statusLog.join(" → ");
 
+  const dismissConcept = useCallback(() => setConceptImage(null), []);
+
+  const confirmConcept = useCallback(() => {
+    const url = conceptUrlRef.current;
+    setConceptImage(null);
+    conceptUrlRef.current = null;
+    interactionStartRef.current = messages.length;
+    setStatusLog([]);
+    sendMessage({
+      text: "Concept approved. Now decompose this concept into layers: use setBackgroundColor for the background, then call addImageElement multiple times for each visual element.",
+      files: url
+        ? [
+            {
+              type: "file" as const,
+              mediaType: "image/png",
+              url,
+            },
+          ]
+        : undefined,
+    });
+  }, [sendMessage, messages.length]);
+
+  const regenConcept = useCallback(() => {
+    const url = conceptUrlRef.current;
+    setConceptImage(null);
+    conceptUrlRef.current = null;
+    interactionStartRef.current = messages.length;
+    setStatusLog([]);
+    sendMessage({
+      text: "Regenerate the concept with a different style and approach. Try a completely different composition. Here is the previous concept for reference — make something noticeably different.",
+      files: url
+        ? [
+            {
+              type: "file" as const,
+              mediaType: "image/png",
+              url,
+            },
+          ]
+        : undefined,
+    });
+  }, [sendMessage, messages.length]);
+
   return {
     sendEdit,
     stopEdit,
@@ -224,12 +317,17 @@ export function useAiIconEdit({
     isLoading,
     statusText: isLoading || statusLog.length > 0 ? statusText : "",
     hasHistory: messages.length > 0 && !isLoading,
+    conceptImage,
+    dismissConcept,
+    confirmConcept,
+    regenConcept,
   };
 }
 
 const TOOL_LABELS: Record<string, string> = {
   setBackgroundColor: "Background color",
   generateBackground: "Generating background",
+  generateIconConcept: "Generating concept",
   updateElement: "Updating element",
   addTextElement: "Adding text",
   addAccentElement: "Adding shape",

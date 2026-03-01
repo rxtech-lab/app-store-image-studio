@@ -131,6 +131,10 @@ export function IconEditorClient({
     isLoading: aiLoading,
     statusText,
     hasHistory,
+    conceptImage,
+    dismissConcept,
+    confirmConcept,
+    regenConcept,
   } = useAiIconEdit({
     iconProjectId,
     initialMessages: initialAiMessages as UIMessage[],
@@ -285,6 +289,9 @@ export function IconEditorClient({
               isLoading={aiLoading}
               statusText={statusText}
               hasHistory={hasHistory}
+              conceptImage={conceptImage}
+              onConfirmConcept={confirmConcept}
+              onRegenConcept={regenConcept}
             />
           </div>
         </div>

@@ -85,7 +85,7 @@ export async function POST(req: Request) {
         inputSchema: zodSchema(generateBackgroundSchema),
         execute: async ({ prompt: bgPrompt }) => {
           const genResult = await generateText({
-            model: gateway(AI_CONFIG.backgroundModel),
+            model: gateway(AI_CONFIG.imageModel),
             prompt: `Clean, minimal App Store screenshot background: ${bgPrompt}. Simple smooth gradient or solid color with subtle texture. Apple-style, elegant, not busy or complex. No text, no objects, no patterns. Just a clean backdrop.`,
           });
           const imageFile = genResult.files.find((f) =>
@@ -242,7 +242,7 @@ export async function POST(req: Request) {
         inputSchema: zodSchema(addImageElementSchema),
         execute: async ({ prompt: imgPrompt, ...params }) => {
           const genResult = await generateText({
-            model: gateway(AI_CONFIG.backgroundModel),
+            model: gateway(AI_CONFIG.imageModel),
             prompt: `${imgPrompt}. Clean, polished image suitable for App Store marketing. No text.`,
           });
           const imageFile = genResult.files.find((f) =>

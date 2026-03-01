@@ -2,7 +2,16 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, Send, Square, X, Trash2 } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  Send,
+  Square,
+  X,
+  Trash2,
+  Check,
+  RefreshCw,
+} from "lucide-react";
 
 interface AiPromptBarProps {
   onSend: (prompt: string) => void;
@@ -11,6 +20,9 @@ interface AiPromptBarProps {
   isLoading: boolean;
   statusText?: string;
   hasHistory?: boolean;
+  conceptImage?: string | null;
+  onConfirmConcept?: () => void;
+  onRegenConcept?: () => void;
 }
 
 export function AiPromptBar({
@@ -20,6 +32,9 @@ export function AiPromptBar({
   isLoading,
   statusText,
   hasHistory,
+  conceptImage,
+  onConfirmConcept,
+  onRegenConcept,
 }: AiPromptBarProps) {
   const [prompt, setPrompt] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -69,6 +84,41 @@ export function AiPromptBar({
 
   return (
     <div className="flex flex-col gap-1.5 bg-card border rounded-xl px-4 py-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-2xl">
+      {/* Concept preview */}
+      {conceptImage && (
+        <div className="flex items-center gap-3 animate-in fade-in duration-200">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={conceptImage}
+            alt="Icon concept"
+            className="w-20 h-20 rounded-lg border object-contain shrink-0"
+          />
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <span className="text-xs font-medium text-muted-foreground">
+              Concept preview
+            </span>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={onRegenConcept}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Regen
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={onConfirmConcept}
+              >
+                <Check className="h-3 w-3 mr-1" />
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Response text */}
       {statusText && (
         <p className="text-xs text-muted-foreground leading-relaxed animate-in fade-in duration-200">

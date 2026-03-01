@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         inputSchema: zodSchema(generateBackgroundSchema),
         execute: async ({ prompt: bgPrompt }) => {
           const genResult = await generateText({
-            model: gateway(AI_CONFIG.backgroundModel),
+            model: gateway(AI_CONFIG.imageModel),
             prompt: `Clean, minimal icon background: ${bgPrompt}. Simple smooth gradient or solid color. Apple-style, elegant. No text, no objects, no patterns.`,
           });
           const imageFile = genResult.files.find((f) =>
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
         execute: async ({ prompt: imgPrompt, ...params }) => {
           // Generate with chromakey green background
           const genResult = await generateText({
-            model: gateway(AI_CONFIG.backgroundModel),
+            model: gateway(AI_CONFIG.imageModel),
             prompt: `${imgPrompt}. STYLE: Flat 2D vector illustration. Solid fills, no textures, no gradients within shapes. Like an SVG icon or SF Symbol — pure geometric shapes with flat solid colors. Absolutely NO 3D, NO realistic rendering, NO shadows, NO highlights, NO reflections, NO skeuomorphism, NO perspective. Just flat colored shapes on a single plane. IMPORTANT: The subject must NOT contain any green, lime, or teal colors — avoid all shades of green entirely. BACKGROUND: Solid flat uniform chromakey green #00FF00. The entire background must be this single pure green color with NO variation. The subject should have sharp, clean edges against the green background.`,
           });
           const imageFile = genResult.files.find((f) =>
@@ -168,20 +168,30 @@ export async function POST(req: Request) {
           "Generate a complete icon concept image as a visual reference. This does NOT add anything to the canvas — it only shows you the concept so you can then decompose it into layers using addImageElement. Always call this FIRST when creating a new icon.",
         inputSchema: zodSchema(generateIconConceptSchema),
         execute: async ({ prompt: conceptPrompt }) => {
+          console.log("Generating icon concept with prompt:", conceptPrompt);
           const genResult = await generateText({
-            model: gateway(AI_CONFIG.backgroundModel),
+            model: gateway(AI_CONFIG.imageModel),
             prompt: `Design a complete app icon: ${conceptPrompt}. Style: Flat 2D, minimal, Apple-style app icon. Bold solid colors, simple geometric shapes, clean vector look. Square format, no rounded corners. No text unless specified. NOT realistic, NOT 3D, NOT photographic.`,
           });
           const imageFile = genResult.files.find((f) =>
             f.mediaType?.startsWith("image/"),
           );
           if (!imageFile) throw new Error("No concept image generated");
-          const base64 = Buffer.from(imageFile.uint8Array).toString("base64");
-          return { base64 };
+          const buffer = Buffer.from(imageFile.uint8Array);
+          const base64 = buffer.toString("base64");
+          const file = new File([buffer], "icon-concept.png", {
+            type: "image/png",
+          });
+          const url = await uploadBlob(
+            file,
+            `icon-concepts/${userId}/${Date.now()}.png`,
+          );
+          return { url, base64 };
         },
         toModelOutput: async ({ output }) => {
           const o = output as Record<string, unknown>;
-          if (!o.base64) return { type: "text", value: "Failed to generate concept" };
+          if (!o.base64)
+            return { type: "text", value: "Failed to generate concept" };
           return {
             type: "content",
             value: [
@@ -192,7 +202,7 @@ export async function POST(req: Request) {
               },
               {
                 type: "text" as const,
-                text: "Icon concept generated. Now decompose this into separate layers using setBackgroundColor and multiple addImageElement calls. Each addImageElement should describe ONE element from this concept.",
+                text: "Icon concept generated. The user will review and confirm before you proceed to build layers.",
               },
             ],
           };

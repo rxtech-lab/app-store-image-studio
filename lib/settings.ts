@@ -68,7 +68,7 @@ export const ICON_EXPORT_SIZES = {
 export type IconPlatform = keyof typeof ICON_EXPORT_SIZES;
 
 export const AI_CONFIG = {
-  backgroundModel: "google/gemini-3.1-flash-image-preview",
+  imageModel: "google/gemini-3.1-flash-image-preview",
   textModel: "google/gemini-3.1-flash-image-preview",
-  editModel: "minimax/minimax-m2.5",
+  editModel: "google/gemini-3-flash",
 } as const;
