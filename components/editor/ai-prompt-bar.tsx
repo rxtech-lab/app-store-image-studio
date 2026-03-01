@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Markdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
+import { uploadBackgroundImage } from "@/actions/templates";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -13,10 +14,17 @@ import {
   Trash2,
   Check,
   RefreshCw,
+  ImagePlus,
 } from "lucide-react";
 
+interface AttachedImage {
+  id: string;
+  preview: string;
+  url: string | null; // null while uploading
+}
+
 interface AiPromptBarProps {
-  onSend: (prompt: string) => void;
+  onSend: (prompt: string, imageUrls?: string[]) => void;
   onStop?: () => void;
   onClearHistory?: () => void;
   isLoading: boolean;
@@ -42,7 +50,9 @@ export function AiPromptBar({
 }: AiPromptBarProps) {
   const [prompt, setPrompt] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (expanded && inputRef.current) {
@@ -50,10 +60,56 @@ export function AiPromptBar({
     }
   }, [expanded]);
 
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      attachedImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+    const newImages: AttachedImage[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      preview: URL.createObjectURL(file),
+      url: null,
+    }));
+    setAttachedImages((prev) => [...prev, ...newImages]);
+
+    await Promise.all(
+      files.map(async (file, i) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const url = await uploadBackgroundImage(formData);
+        setAttachedImages((prev) =>
+          prev.map((img) =>
+            img.id === newImages[i].id ? { ...img, url } : img,
+          ),
+        );
+      }),
+    );
+  }, []);
+
+  const removeImage = useCallback((id: string) => {
+    setAttachedImages((prev) => {
+      const img = prev.find((i) => i.id === id);
+      if (img) URL.revokeObjectURL(img.preview);
+      return prev.filter((i) => i.id !== id);
+    });
+  }, []);
+
+  const allUploaded = attachedImages.every((img) => img.url !== null);
+
   const handleSubmit = () => {
-    if (!prompt.trim() || isLoading) return;
-    onSend(prompt.trim());
+    if (!prompt.trim() || isLoading || !allUploaded) return;
+    const urls = attachedImages
+      .map((img) => img.url)
+      .filter((u): u is string => u !== null);
+    onSend(prompt.trim(), urls.length > 0 ? urls : undefined);
     setPrompt("");
+    attachedImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    setAttachedImages([]);
   };
 
   const handleClose = () => {
@@ -62,6 +118,8 @@ export function AiPromptBar({
     }
     setExpanded(false);
     setPrompt("");
+    attachedImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    setAttachedImages([]);
   };
 
   const handleStop = () => {
@@ -159,6 +217,33 @@ export function AiPromptBar({
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Attached image previews */}
+      {attachedImages.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {attachedImages.map((img) => (
+            <div key={img.id} className="relative group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.preview}
+                alt="Attached"
+                className="w-14 h-14 rounded-lg border object-cover"
+              />
+              {img.url === null && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => removeImage(img.id)}
+                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {/* Input row */}
       <div className="flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-primary shrink-0" />
@@ -170,10 +255,44 @@ export function AiPromptBar({
             if (e.key === "Enter") handleSubmit();
             if (e.key === "Escape") handleClose();
           }}
+          onPaste={(e) => {
+            const imageFiles = Array.from(e.clipboardData.items)
+              .filter((item) => item.type.startsWith("image/"))
+              .map((item) => item.getAsFile())
+              .filter((f): f is File => f !== null);
+            if (imageFiles.length > 0) {
+              e.preventDefault();
+              handleFiles(imageFiles);
+            }
+          }}
           placeholder="Describe changes... e.g. 'Add headline: Download Now, blue gradient background'"
           className="flex-1 min-w-0 bg-transparent text-base outline-none placeholder:text-muted-foreground w-96"
           disabled={isLoading}
         />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFiles(Array.from(e.target.files));
+              e.target.value = "";
+            }
+          }}
+        />
+        {!isLoading && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => fileInputRef.current?.click()}
+            className="h-8 w-8 shrink-0"
+            title="Attach images"
+          >
+            <ImagePlus className="h-4 w-4" />
+          </Button>
+        )}
         {isLoading ? (
           <Button
             size="icon-sm"
@@ -189,7 +308,7 @@ export function AiPromptBar({
             size="icon-sm"
             variant="ghost"
             onClick={handleSubmit}
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() || !allUploaded}
             className="h-8 w-8 shrink-0"
           >
             <Send className="h-4 w-4" />
