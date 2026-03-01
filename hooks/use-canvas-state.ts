@@ -5,10 +5,22 @@ import type {
   CanvasState,
   CanvasAction,
   CanvasElement,
+  GroupElement,
 } from "@/lib/canvas/types";
 import { nanoid } from "nanoid";
 
 const HISTORY_LIMIT = 50;
+
+function deepCloneElement(el: CanvasElement): CanvasElement {
+  if (el.type === "group") {
+    return {
+      ...el,
+      id: nanoid(),
+      children: el.children.map(deepCloneElement),
+    };
+  }
+  return { ...el, id: nanoid() } as CanvasElement;
+}
 
 function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
   switch (action.type) {
@@ -58,15 +70,74 @@ function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
       const idx = state.elements.findIndex((el) => el.id === action.payload);
       if (idx === -1) return state;
       const original = state.elements[idx];
-      const clone = {
-        ...original,
-        id: nanoid(),
-        x: original.x + 20,
-        y: original.y + 20,
-        name: original.name ? `${original.name} (copy)` : undefined,
-      } as CanvasElement;
+      const clone = deepCloneElement(original);
+      clone.x = original.x + 20;
+      clone.y = original.y + 20;
+      if (original.name) clone.name = `${original.name} (copy)`;
       const elements = [...state.elements];
       elements.splice(idx + 1, 0, clone);
+      return { ...state, elements };
+    }
+
+    case "GROUP_ELEMENTS": {
+      const ids = action.payload;
+      if (ids.length < 2) return state;
+      const toGroup = ids
+        .map((id) => state.elements.find((el) => el.id === id))
+        .filter(Boolean) as CanvasElement[];
+      if (toGroup.length < 2) return state;
+
+      // Compute bounding box
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const el of toGroup) {
+        minX = Math.min(minX, el.x);
+        minY = Math.min(minY, el.y);
+        maxX = Math.max(maxX, el.x + el.width);
+        maxY = Math.max(maxY, el.y + el.height);
+      }
+
+      // Adjust children positions to be relative to group origin
+      const children = toGroup.map((el) => ({
+        ...el,
+        x: el.x - minX,
+        y: el.y - minY,
+      })) as CanvasElement[];
+
+      const group: GroupElement = {
+        id: nanoid(),
+        type: "group",
+        name: "Group",
+        children,
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+        rotation: 0,
+      };
+
+      // Find insertion index (position of first selected element)
+      const firstIdx = state.elements.findIndex((el) => ids.includes(el.id));
+      const remaining = state.elements.filter((el) => !ids.includes(el.id));
+      remaining.splice(firstIdx, 0, group);
+      return { ...state, elements: remaining };
+    }
+
+    case "UNGROUP_ELEMENT": {
+      const groupIdx = state.elements.findIndex(
+        (el) => el.id === action.payload && el.type === "group",
+      );
+      if (groupIdx === -1) return state;
+      const group = state.elements[groupIdx] as GroupElement;
+
+      // Convert children positions back to absolute
+      const children = group.children.map((el) => ({
+        ...el,
+        x: el.x + group.x,
+        y: el.y + group.y,
+      })) as CanvasElement[];
+
+      const elements = [...state.elements];
+      elements.splice(groupIdx, 1, ...children);
       return { ...state, elements };
     }
 

@@ -45,7 +45,7 @@ export function IconEditorClient({
   initialAiMessages,
 }: IconEditorClientProps) {
   const stageRef = useRef<Konva.Stage | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showLayers, setShowLayers] = useState(true);
   const [isAddingImage, setIsAddingImage] = useState(false);
 
@@ -58,6 +58,20 @@ export function IconEditorClient({
     iconProjectId,
     state,
     stageRef,
+  );
+
+  const handleSelect = useCallback(
+    (id: string | null) => setSelectedIds(id ? [id] : []),
+    [],
+  );
+
+  const handleMultiSelect = useCallback(
+    (id: string) => {
+      setSelectedIds((prev) =>
+        prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+      );
+    },
+    [],
   );
 
   useEffect(() => {
@@ -75,18 +89,40 @@ export function IconEditorClient({
       } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         undo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        setSelectedIds(state.elements.map((el) => el.id));
+      } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "g") {
+        // Ungroup
+        e.preventDefault();
+        if (
+          selectedIds.length === 1 &&
+          state.elements.find((el) => el.id === selectedIds[0])?.type === "group"
+        ) {
+          dispatch({ type: "UNGROUP_ELEMENT", payload: selectedIds[0] });
+          setSelectedIds([]);
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "g") {
+        // Group
+        e.preventDefault();
+        if (selectedIds.length >= 2) {
+          dispatch({ type: "GROUP_ELEMENTS", payload: selectedIds });
+          setSelectedIds([]);
+        }
       } else if (e.key === "Backspace" || e.key === "Delete") {
-        if (selectedId) {
+        if (selectedIds.length > 0) {
           e.preventDefault();
-          dispatch({ type: "REMOVE_ELEMENT", payload: selectedId });
-          setSelectedId(null);
+          for (const id of selectedIds) {
+            dispatch({ type: "REMOVE_ELEMENT", payload: id });
+          }
+          setSelectedIds([]);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, undo, dispatch, saveNow]);
+  }, [selectedIds, undo, dispatch, saveNow, state.elements]);
 
   const {
     sendEdit,
@@ -150,7 +186,9 @@ export function IconEditorClient({
   );
 
   const selectedElement =
-    state.elements.find((el) => el.id === selectedId) ?? null;
+    selectedIds.length === 1
+      ? (state.elements.find((el) => el.id === selectedIds[0]) ?? null)
+      : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -210,8 +248,9 @@ export function IconEditorClient({
         {showLayers && (
           <LayersPanel
             elements={state.elements}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
+            selectedIds={selectedIds}
+            onSelect={handleSelect}
+            onMultiSelect={handleMultiSelect}
             dispatch={dispatch}
             backgroundImageUrl={state.backgroundImageUrl}
             onRemoveBackgroundImage={() =>
@@ -224,8 +263,8 @@ export function IconEditorClient({
           <CanvasEditor
             state={state}
             dispatch={dispatch}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
+            selectedIds={selectedIds}
+            onSelect={handleSelect}
             stageRef={stageRef}
           />
           {/* Floating element properties */}

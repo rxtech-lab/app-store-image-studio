@@ -161,6 +161,14 @@ export const reorderElementSchema = z.object({
     ),
 });
 
+export const generateIconConceptSchema = z.object({
+  prompt: z
+    .string()
+    .describe(
+      "Description of the complete icon to generate as a concept reference. Describe the full icon including background, main subject, and details.",
+    ),
+});
+
 export const addImageElementSchema = z.object({
   name: z
     .string()

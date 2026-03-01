@@ -73,7 +73,7 @@ export function SectionEditorClient({
     templates[0] ?? null,
   );
   const stageRef = useRef<Konva.Stage | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showLayers, setShowLayers] = useState(true);
   const [showTemplates, setShowTemplates] = useState(true);
   const [isAddingImage, setIsAddingImage] = useState(false);
@@ -108,6 +108,11 @@ export function SectionEditorClient({
     handleStateSaved,
   );
 
+  const handleSelect = useCallback(
+    (id: string | null) => setSelectedIds(id ? [id] : []),
+    [],
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -123,18 +128,23 @@ export function SectionEditorClient({
       } else if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         undo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        e.preventDefault();
+        setSelectedIds(state.elements.map((el) => el.id));
       } else if (e.key === "Backspace" || e.key === "Delete") {
-        if (selectedId) {
+        if (selectedIds.length > 0) {
           e.preventDefault();
-          dispatch({ type: "REMOVE_ELEMENT", payload: selectedId });
-          setSelectedId(null);
+          for (const id of selectedIds) {
+            dispatch({ type: "REMOVE_ELEMENT", payload: id });
+          }
+          setSelectedIds([]);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, undo, dispatch, saveNow]);
+  }, [selectedIds, undo, dispatch, saveNow, state.elements]);
 
   const {
     sendEdit,
@@ -197,7 +207,9 @@ export function SectionEditorClient({
   );
 
   const selectedElement =
-    state.elements.find((el) => el.id === selectedId) ?? null;
+    selectedIds.length === 1
+      ? (state.elements.find((el) => el.id === selectedIds[0]) ?? null)
+      : null;
 
   const handleTemplateSelect = (template: Template) => {
     setActiveTemplate(template);
@@ -205,7 +217,7 @@ export function SectionEditorClient({
       template.canvasState ??
       getDefaultCanvasState(presetKey, customWidth, customHeight);
     dispatch({ type: "SET_STATE", payload: canvasState });
-    setSelectedId(null);
+    setSelectedIds([]);
   };
 
   return (
@@ -323,8 +335,8 @@ export function SectionEditorClient({
             {showLayers && (
               <LayersPanel
                 elements={state.elements}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
                 dispatch={dispatch}
                 backgroundImageUrl={state.backgroundImageUrl}
                 onRemoveBackgroundImage={() =>
@@ -337,8 +349,8 @@ export function SectionEditorClient({
               <CanvasEditor
                 state={state}
                 dispatch={dispatch}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
                 stageRef={stageRef}
                 screenshots={screenshots}
               />

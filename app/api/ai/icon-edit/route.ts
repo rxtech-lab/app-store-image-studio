@@ -23,6 +23,7 @@ import {
   viewCanvasPreviewSchema,
   reorderElementSchema,
   addImageElementSchema,
+  generateIconConceptSchema,
 } from "@/lib/ai/tools";
 import type { CanvasState } from "@/lib/canvas/types";
 
@@ -104,7 +105,8 @@ export async function POST(req: Request) {
         }),
       }),
       addAccentElement: tool({
-        description: "Add a new accent/shape element to the canvas",
+        description:
+          "Add a new accent/shape element to the canvas. Add descriptive name to the layer as well.",
         inputSchema: zodSchema(addAccentElementSchema),
         execute: async (params) => ({
           ...params,
@@ -125,7 +127,7 @@ export async function POST(req: Request) {
           // Generate with chromakey green background
           const genResult = await generateText({
             model: gateway(AI_CONFIG.backgroundModel),
-            prompt: `${imgPrompt}. BACKGROUND: Solid, flat, uniform chromakey green color. Use EXACTLY hex color #00FF00 (RGB 0, 255, 0). The entire background must be this single pure green color with NO variation, NO gradients, NO shadows, NO lighting effects. The subject should have sharp, clean edges against the green background. No green hues in the subject itself.`,
+            prompt: `${imgPrompt}. STYLE: Flat 2D vector illustration. Solid fills, no textures, no gradients within shapes. Like an SVG icon or SF Symbol — pure geometric shapes with flat solid colors. Absolutely NO 3D, NO realistic rendering, NO shadows, NO highlights, NO reflections, NO skeuomorphism, NO perspective. Just flat colored shapes on a single plane. IMPORTANT: The subject must NOT contain any green, lime, or teal colors — avoid all shades of green entirely. BACKGROUND: Solid flat uniform chromakey green #00FF00. The entire background must be this single pure green color with NO variation. The subject should have sharp, clean edges against the green background.`,
           });
           const imageFile = genResult.files.find((f) =>
             f.mediaType?.startsWith("image/"),
@@ -136,9 +138,13 @@ export async function POST(req: Request) {
           const rawBuffer = Buffer.from(imageFile.uint8Array);
           const transparentBuffer = await removeGreenScreen(rawBuffer);
 
-          const file = new File([transparentBuffer], "icon-layer.png", {
-            type: "image/png",
-          });
+          const file = new File(
+            [new Uint8Array(transparentBuffer)],
+            "icon-layer.png",
+            {
+              type: "image/png",
+            },
+          );
           const url = await uploadBlob(
             file,
             `icon-layers/${userId}/${Date.now()}.png`,
@@ -156,6 +162,41 @@ export async function POST(req: Request) {
           "Change the layer order of a canvas element. Use 'front' to bring to top, 'back' to send to bottom.",
         inputSchema: zodSchema(reorderElementSchema),
         execute: async (params) => params,
+      }),
+      generateIconConcept: tool({
+        description:
+          "Generate a complete icon concept image as a visual reference. This does NOT add anything to the canvas — it only shows you the concept so you can then decompose it into layers using addImageElement. Always call this FIRST when creating a new icon.",
+        inputSchema: zodSchema(generateIconConceptSchema),
+        execute: async ({ prompt: conceptPrompt }) => {
+          const genResult = await generateText({
+            model: gateway(AI_CONFIG.backgroundModel),
+            prompt: `Design a complete app icon: ${conceptPrompt}. Style: Flat 2D, minimal, Apple-style app icon. Bold solid colors, simple geometric shapes, clean vector look. Square format, no rounded corners. No text unless specified. NOT realistic, NOT 3D, NOT photographic.`,
+          });
+          const imageFile = genResult.files.find((f) =>
+            f.mediaType?.startsWith("image/"),
+          );
+          if (!imageFile) throw new Error("No concept image generated");
+          const base64 = Buffer.from(imageFile.uint8Array).toString("base64");
+          return { base64 };
+        },
+        toModelOutput: async ({ output }) => {
+          const o = output as Record<string, unknown>;
+          if (!o.base64) return { type: "text", value: "Failed to generate concept" };
+          return {
+            type: "content",
+            value: [
+              {
+                type: "file-data" as const,
+                data: o.base64 as string,
+                mediaType: "image/png",
+              },
+              {
+                type: "text" as const,
+                text: "Icon concept generated. Now decompose this into separate layers using setBackgroundColor and multiple addImageElement calls. Each addImageElement should describe ONE element from this concept.",
+              },
+            ],
+          };
+        },
       }),
       viewCanvasPreview: tool({
         description:
@@ -249,30 +290,51 @@ function buildSystemPrompt(
     ? `\nApp description: ${projectDescription}`
     : "";
 
-  return `You are a world-class icon designer — the team behind Apple's iconic app icons. You create beautiful, memorable, and distinctive app icons with clean shapes, bold colors, and perfect composition. Every icon you design is instantly recognizable and works beautifully at all sizes from 16px to 1024px.
+  return `You are a senior icon designer at Apple. You think in terms of composition, color harmony, and visual hierarchy — not just "put an image on a background." Before making any icon, you mentally plan the layers, colors, and overall feel. You design icons that are FLAT, SIMPLE, and ICONIC — like the best iOS/macOS app icons.
 
-You are a canvas editor agent for designing app icons. You ONLY communicate through tool calls.
+You are a canvas editor agent. You ONLY communicate through tool calls.
 
 CRITICAL RULES:
 - You MUST call tools to make any changes. Text responses alone do NOT modify the canvas.
 - NEVER describe what you "would" do or "could" do. Just DO it by calling tools.
 - For each change the user requests, call the appropriate tool immediately.
-- Call multiple tools for complex requests.
-- After completing all edits, call viewCanvasPreview if you need to verify the visual result.
+- ALWAYS call addImageElement MULTIPLE TIMES to build layered icons — never just once.
+- After completing all edits, call viewCanvasPreview to verify the visual result.
 - After all tool calls are complete, send a brief 1-sentence confirmation of what you changed.
 
-ICON DESIGN PRINCIPLES:
-- Icons are square canvases (${canvasState.width}x${canvasState.height}px)
-- Use addImageElement to generate image layers — these are created with transparent backgrounds
-- Layer multiple transparent images to build up the icon composition
-- Keep designs simple, bold, and readable at small sizes
-- Use strong, distinctive silhouettes
-- Limit to 2-3 colors maximum
-- Avoid fine details that won't be visible at small sizes
-- The background can be a solid color, transparent, or a gradient image
-- Set background to "transparent" with setBackgroundColor for transparent backgrounds
+TWO-PHASE ICON DESIGN WORKFLOW:
+When creating a new icon, ALWAYS follow these two phases:
 
-Available element types: text, accent (shapes), image (AI-generated with transparent background).
+PHASE 1 — CONCEPT: Call generateIconConcept first to generate a complete icon as a visual reference.
+PHASE 2 — BUILD: Look at the concept image and decompose it into layers. Use setBackgroundColor for the background, then call addImageElement MULTIPLE TIMES — once for each visual element you see in the concept.
+
+LAYER BUILDING RULES:
+- ALWAYS use addImageElement for ALL visual elements. NEVER use addAccentElement.
+- addImageElement generates flat 2D vector-style images with transparent backgrounds.
+- Each addImageElement prompt should describe ONE element from the concept — not the entire icon.
+- You MUST create AT LEAST 2-3 image layers. A single addImageElement call is NOT acceptable.
+- NEVER create rounded corners, borders, or icon masks — Xcode/Android Studio handles that automatically.
+- AVOID green colors in prompts — green is removed during transparency processing.
+- Only use addTextElement when the user explicitly asks for text.
+
+EXAMPLE — "storage" app icon:
+Phase 1: generateIconConcept("A storage app icon with a blue background, white hard drive symbol with a download arrow")
+Phase 2 (after seeing the concept):
+1. setBackgroundColor: "#0A84FF"
+2. addImageElement: "A large flat white circle, centered" (background shape from concept)
+3. addImageElement: "A flat minimal hard drive symbol, simple geometric rectangles stacked" (main symbol from concept)
+4. addImageElement: "A small flat white downward arrow" (detail from concept)
+
+ICON DESIGN PRINCIPLES:
+- Canvas: ${canvasState.width}x${canvasState.height}px (square)
+- NO rounded corners or icon masks — the OS handles icon shaping
+- Full-bleed square — content and background fill the entire canvas
+- FLAT 2D only — no 3D, no realistic rendering, no shadows, no skeuomorphism
+- Bold, simple, readable at small sizes
+- Strong silhouettes, 2-3 colors maximum
+- Think SF Symbols, Apple icon design language
+
+Available element types: text, image (AI-generated with transparent background).
 ${projectContext}
 Current canvas:
 ${summarizeCanvasState(canvasState)}
