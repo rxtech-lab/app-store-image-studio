@@ -14,6 +14,7 @@ export default function LoginPage() {
 
       <Link
         href="/"
+        aria-label="Back to home"
         className="absolute top-6 left-6 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         ← Back
