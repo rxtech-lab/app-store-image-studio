@@ -190,3 +190,17 @@
   33% { transform: translate(20px, -15px) scale(1.05); }
   66% { transform: translate(-15px, 10px) scale(0.95); }
 }
+
+.landing-shimmer {
+  background: linear-gradient(90deg, oklch(0.556 0 0) 40%, oklch(0.59 0.14 242) 50%, oklch(0.556 0 0) 60%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: landing-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes landing-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

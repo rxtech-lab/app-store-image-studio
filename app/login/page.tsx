@@ -1,30 +1,38 @@
 import { signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  LoginBackground,
+  LoginHeader,
+  LoginCard,
+} from "@/components/login-page";
+import Link from "next/link";
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome</CardTitle>
-          <CardDescription>
-            Sign in to manage your App Store marketing images
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            action={async () => {
-              "use server";
-              await signIn("rxlab", { redirectTo: "/dashboard" });
-            }}
-          >
-            <Button type="submit" className="w-full">
-              Sign in with RxLab
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-6">
+      <LoginBackground />
+
+      <Link
+        href="/"
+        className="absolute top-6 left-6 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        ← Back
+      </Link>
+
+      <LoginHeader />
+
+      <LoginCard>
+        <form
+          action={async () => {
+            "use server";
+            await signIn("rxlab", { redirectTo: "/dashboard" });
+          }}
+        >
+          <Button type="submit" className="w-full h-11 text-sm font-medium">
+            Sign in with RxLab
+          </Button>
+        </form>
+      </LoginCard>
     </div>
   );
 }

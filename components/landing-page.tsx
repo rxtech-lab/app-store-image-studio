@@ -8,7 +8,7 @@ import {
   Smartphone,
   Sparkles,
   Layers,
-  Image,
+  ImageIcon,
   Wand2,
   MonitorSmartphone,
   ArrowRight,
@@ -36,7 +36,7 @@ const scaleIn = {
 
 const features = [
   {
-    icon: Image,
+    icon: ImageIcon,
     title: "Marketing Screenshots",
     description:
       "Design App Store screenshots with a powerful canvas editor. Add device frames, text overlays, and backgrounds.",
@@ -225,57 +225,131 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      {/* ── Features ───────────────────────────────────── */}
-      <section
-        id="features"
-        className="py-28 px-6 bg-muted/30 border-y border-border/40"
-      >
-        <div className="mx-auto max-w-6xl">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.3 }}
-            className="text-center mb-16"
-          >
-            <motion.h2
-              custom={0}
-              variants={fadeUp}
-              className="text-3xl sm:text-4xl font-bold tracking-tight"
-            >
-              Everything you need
-            </motion.h2>
-            <motion.p
-              custom={1}
-              variants={fadeUp}
-              className="mt-4 text-muted-foreground text-lg max-w-lg mx-auto"
-            >
-              One toolkit for every App Store creative — from screenshots to
-              icons.
-            </motion.p>
-          </motion.div>
-
+      {/* ── Features — bento grid ──────────────────────── */}
+      <section id="features" className="py-28 px-6">
+        <div className="mx-auto max-w-5xl">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.2 }}
-            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5"
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
           >
-            {features.map((f, i) => (
-              <motion.div
-                key={f.title}
-                custom={i}
-                variants={scaleIn}
-                className="group relative rounded-2xl border border-border/60 bg-card p-6 transition-shadow hover:shadow-lg"
-              >
-                <div className="mb-4 inline-flex items-center justify-center size-10 rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
-                  <f.icon className="size-5" />
+            {/* ── Screenshot editor — large card ── */}
+            <motion.div
+              custom={0}
+              variants={scaleIn}
+              className="group relative md:row-span-2 rounded-3xl border border-border/60 bg-card overflow-hidden transition-shadow hover:shadow-xl"
+            >
+              <div className="p-8 pb-0 flex flex-col h-full">
+                <div className="mb-4 inline-flex items-center justify-center size-11 rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                  <ImageIcon className="size-5" />
                 </div>
-                <h3 className="text-base font-semibold mb-2">{f.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {f.description}
+                <h3 className="text-xl font-semibold mb-2">
+                  {features[0].title}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                  {features[0].description}
                 </p>
-              </motion.div>
-            ))}
+                {/* Mini canvas illustration */}
+                <div className="mt-auto relative rounded-t-xl border border-b-0 border-border/40 bg-muted/40 p-4 flex items-end justify-center gap-3 overflow-hidden">
+                  {[0, 1, 2].map((j) => (
+                    <div
+                      key={j}
+                      className="w-14 aspect-[9/19.5] rounded-lg bg-gradient-to-b from-primary/20 to-primary/5 border border-primary/15 landing-float"
+                      style={{ animationDelay: `${j * 0.5}s` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* ── AI editing ── */}
+            <motion.div
+              custom={1}
+              variants={scaleIn}
+              className="group relative rounded-3xl border border-border/60 bg-card overflow-hidden transition-shadow hover:shadow-xl"
+            >
+              <div className="p-8">
+                <div className="mb-4 inline-flex items-center justify-center size-11 rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                  <Wand2 className="size-5" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">
+                  {features[1].title}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+                  {features[1].description}
+                </p>
+                {/* AI prompt mockup */}
+                <div className="rounded-xl border border-border/40 bg-muted/40 px-4 py-3 flex items-center gap-3">
+                  <Sparkles className="size-4 text-primary shrink-0" />
+                  <span className="text-xs text-muted-foreground landing-shimmer">
+                    &ldquo;Add a blue gradient background and center the
+                    screenshot…&rdquo;
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* ── Icon generation & multi-device — side-by-side ── */}
+            <motion.div
+              custom={2}
+              variants={scaleIn}
+              className="group relative rounded-3xl border border-border/60 bg-card overflow-hidden transition-shadow hover:shadow-xl"
+            >
+              <div className="p-8">
+                <div className="flex items-start gap-6">
+                  <div className="flex-1">
+                    <div className="mb-4 inline-flex items-center justify-center size-11 rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                      <Sparkles className="size-5" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">
+                      {features[2].title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {features[2].description}
+                    </p>
+                  </div>
+                  {/* Mini icon grid */}
+                  <div className="hidden sm:grid grid-cols-2 gap-2 shrink-0 pt-1">
+                    {[0, 1, 2, 3].map((j) => (
+                      <div
+                        key={j}
+                        className="size-10 rounded-xl bg-gradient-to-br from-primary/25 to-primary/5 border border-primary/15"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* ── Multi-device — full-width accent strip ── */}
+          <motion.div
+            custom={3}
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.3 }}
+            className="mt-4 rounded-3xl border border-border/60 bg-gradient-to-r from-primary/5 via-card to-primary/5 p-8 flex flex-col sm:flex-row items-center gap-6 transition-shadow hover:shadow-xl"
+          >
+            <div className="flex-1">
+              <div className="mb-3 inline-flex items-center justify-center size-11 rounded-2xl bg-primary/10 text-primary">
+                <MonitorSmartphone className="size-5" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                {features[3].title}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
+                {features[3].description}
+              </p>
+            </div>
+            {/* Device silhouettes */}
+            <div className="flex items-end gap-3 shrink-0">
+              <div className="w-8 h-16 rounded-md border border-primary/20 bg-primary/5" />
+              <div className="w-7 h-14 rounded-md border border-primary/20 bg-primary/5" />
+              <div className="w-12 h-9 rounded-md border border-primary/20 bg-primary/5" />
+              <div className="w-14 h-10 rounded-md border border-primary/20 bg-primary/5" />
+            </div>
           </motion.div>
         </div>
       </section>
