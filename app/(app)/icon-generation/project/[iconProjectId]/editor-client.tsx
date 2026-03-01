@@ -130,6 +130,7 @@ export function IconEditorClient({
     clearHistory,
     isLoading: aiLoading,
     statusText,
+    aiText,
     hasHistory,
     conceptImage,
     dismissConcept,
@@ -288,6 +289,7 @@ export function IconEditorClient({
               onClearHistory={clearHistory}
               isLoading={aiLoading}
               statusText={statusText}
+              aiText={aiText}
               hasHistory={hasHistory}
               conceptImage={conceptImage}
               onConfirmConcept={confirmConcept}

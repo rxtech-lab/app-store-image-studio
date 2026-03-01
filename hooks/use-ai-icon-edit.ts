@@ -76,6 +76,7 @@ export function useAiIconEdit({
   initialMessagesRef.current = initialMessagesProp;
 
   const [statusLog, setStatusLog] = useState<string[]>([]);
+  const [aiText, setAiText] = useState("");
   const [conceptImage, setConceptImage] = useState<string | null>(null);
   const conceptUrlRef = useRef<string | null>(null);
   const interactionStartRef = useRef(0);
@@ -165,6 +166,7 @@ export function useAiIconEdit({
 
   useEffect(() => {
     const newLogs: string[] = [];
+    let latestText = "";
     const startIdx = interactionStartRef.current;
 
     for (let i = startIdx; i < messages.length; i++) {
@@ -210,7 +212,7 @@ export function useAiIconEdit({
           "text" in part
         ) {
           const text = (part as { text: string }).text;
-          if (text) newLogs.push(text);
+          if (text) latestText = text;
         }
       }
     }
@@ -218,6 +220,7 @@ export function useAiIconEdit({
     if (newLogs.length > 0) {
       setStatusLog(newLogs);
     }
+    setAiText(latestText);
   }, [messages, dispatch]);
 
   const sendEdit = useCallback(
@@ -230,6 +233,7 @@ export function useAiIconEdit({
       }
       interactionStartRef.current = messages.length;
       setStatusLog([]);
+      setAiText("");
       sendMessage({
         text: url
           ? `${prompt}. Here is the previous concept for reference — regenerate based on this feedback.`
@@ -251,6 +255,7 @@ export function useAiIconEdit({
     conceptUrlRef.current = null;
     setConceptImage(null);
     setStatusLog([]);
+    setAiText("");
     setMessages([]);
     interactionStartRef.current = 0;
     if (projectIdRef.current) {
@@ -327,6 +332,7 @@ export function useAiIconEdit({
     clearHistory,
     isLoading,
     statusText: isLoading || statusLog.length > 0 ? statusText : "",
+    aiText: isLoading || aiText ? aiText : "",
     hasHistory: messages.length > 0 && !isLoading,
     conceptImage,
     dismissConcept,

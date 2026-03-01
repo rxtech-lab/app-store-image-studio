@@ -152,6 +152,7 @@ export function SectionEditorClient({
     clearHistory,
     isLoading: aiLoading,
     statusText,
+    aiText,
     hasHistory,
   } = useAiEdit({
     templateId: activeTemplate?.id ?? "",
@@ -371,6 +372,7 @@ export function SectionEditorClient({
                   onClearHistory={clearHistory}
                   isLoading={aiLoading}
                   statusText={statusText}
+                  aiText={aiText}
                   hasHistory={hasHistory}
                 />
               </div>

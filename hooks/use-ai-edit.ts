@@ -88,6 +88,7 @@ export function useAiEdit({
   initialMessagesRef.current = initialMessagesProp;
 
   const [statusLog, setStatusLog] = useState<string[]>([]);
+  const [aiText, setAiText] = useState("");
   // Track where the current interaction starts so we only show new status logs
   const interactionStartRef = useRef(0);
 
@@ -157,6 +158,7 @@ export function useAiEdit({
   // Process tool results and build status log (only from current interaction)
   useEffect(() => {
     const newLogs: string[] = [];
+    let latestText = "";
     const startIdx = interactionStartRef.current;
 
     for (let i = startIdx; i < messages.length; i++) {
@@ -191,7 +193,7 @@ export function useAiEdit({
           "text" in part
         ) {
           const text = (part as { text: string }).text;
-          if (text) newLogs.push(text);
+          if (text) latestText = text;
         }
       }
     }
@@ -199,6 +201,7 @@ export function useAiEdit({
     if (newLogs.length > 0) {
       setStatusLog(newLogs);
     }
+    setAiText(latestText);
   }, [messages, dispatch]);
 
   const sendEdit = useCallback(
@@ -206,6 +209,7 @@ export function useAiEdit({
       // Mark the start of a new interaction for status log display
       interactionStartRef.current = messages.length;
       setStatusLog([]);
+      setAiText("");
       sendMessage({ text: prompt });
     },
     [sendMessage, messages.length],
@@ -218,6 +222,7 @@ export function useAiEdit({
   const clearHistory = useCallback(() => {
     processedToolCalls.current.clear();
     setStatusLog([]);
+    setAiText("");
     setMessages([]);
     interactionStartRef.current = 0;
     if (templateIdRef.current) {
@@ -244,7 +249,7 @@ export function useAiEdit({
     wasLoadingRef.current = isLoading;
   }, [isLoading, messages]);
 
-  // Build display text from accumulated status log
+  // Build display text from accumulated status log (tool labels only)
   const statusText =
     isLoading && statusLog.length === 0 ? "Thinking..." : statusLog.join(" → ");
 
@@ -254,6 +259,7 @@ export function useAiEdit({
     clearHistory,
     isLoading,
     statusText: isLoading || statusLog.length > 0 ? statusText : "",
+    aiText: isLoading || aiText ? aiText : "",
     hasHistory: messages.length > 0 && !isLoading,
   };
 }

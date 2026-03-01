@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Markdown from "react-markdown";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -19,6 +21,7 @@ interface AiPromptBarProps {
   onClearHistory?: () => void;
   isLoading: boolean;
   statusText?: string;
+  aiText?: string;
   hasHistory?: boolean;
   conceptImage?: string | null;
   onConfirmConcept?: () => void;
@@ -31,6 +34,7 @@ export function AiPromptBar({
   onClearHistory,
   isLoading,
   statusText,
+  aiText,
   hasHistory,
   conceptImage,
   onConfirmConcept,
@@ -119,12 +123,42 @@ export function AiPromptBar({
           </div>
         </div>
       )}
-      {/* Response text */}
-      {statusText && (
-        <p className="text-xs text-muted-foreground leading-relaxed animate-in fade-in duration-200">
-          {statusText}
-        </p>
-      )}
+      {/* Tool status labels */}
+      <AnimatePresence>
+        {statusText && (
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-xs text-muted-foreground leading-relaxed"
+          >
+            {statusText}
+          </motion.p>
+        )}
+      </AnimatePresence>
+      {/* AI text response rendered as markdown chunks */}
+      <AnimatePresence>
+        {aiText && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="max-h-48 overflow-y-auto text-xs text-foreground leading-relaxed prose prose-xs prose-neutral dark:prose-invert [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5"
+          >
+            {aiText.split(/\n\n+/).map((chunk, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: i * 0.08 }}
+              >
+                <Markdown>{chunk}</Markdown>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Input row */}
       <div className="flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-primary shrink-0" />
