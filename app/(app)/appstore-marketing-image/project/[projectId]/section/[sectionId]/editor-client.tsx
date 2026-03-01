@@ -11,6 +11,7 @@ import { getDefaultCanvasState } from "@/lib/canvas/defaults";
 import { useCanvasState } from "@/hooks/use-canvas-state";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { useAiEdit } from "@/hooks/use-ai-edit";
+import { createTemplate } from "@/actions/templates";
 import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
 import { ElementProperties } from "@/components/editor/element-properties";
 import { TemplateStrip } from "@/components/editor/template-strip";
@@ -18,9 +19,8 @@ import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
 import { LayersPanel } from "@/components/editor/layers-panel";
 import { ExportButtons } from "@/components/editor/export-buttons";
 import { Button } from "@/components/ui/button";
-import { IMAGE_PRESETS } from "@/lib/settings";
 import { ScreenshotsDialog } from "@/components/editor/screenshots-dialog";
-import { ArrowLeft, Loader2, LayoutTemplate } from "lucide-react";
+import { ArrowLeft, Loader2, LayoutTemplate, Plus } from "lucide-react";
 import { SidebarToggle } from "@/components/app-layout";
 
 const CanvasEditor = dynamic(
@@ -48,7 +48,9 @@ interface SectionEditorClientProps {
   projectName: string;
   projectDescription?: string;
   sectionId: string;
-  presetKey: PresetKey;
+  presetKey: PresetKey | "custom";
+  customWidth?: number | null;
+  customHeight?: number | null;
   initialTemplates: Template[];
   screenshots: Screenshot[];
 }
@@ -59,6 +61,8 @@ export function SectionEditorClient({
   projectDescription,
   sectionId,
   presetKey,
+  customWidth,
+  customHeight,
   initialTemplates,
   screenshots,
 }: SectionEditorClientProps) {
@@ -71,7 +75,11 @@ export function SectionEditorClient({
   const [showLayers, setShowLayers] = useState(true);
   const [showTemplates, setShowTemplates] = useState(true);
 
-  const defaultState = getDefaultCanvasState(presetKey);
+  const defaultState = getDefaultCanvasState(
+    presetKey,
+    customWidth,
+    customHeight,
+  );
   const { state, dispatch, undo, addText, addAccent, addScreenshot } =
     useCanvasState(activeTemplate?.canvasState ?? defaultState);
 
@@ -145,12 +153,12 @@ export function SectionEditorClient({
 
   const selectedElement =
     state.elements.find((el) => el.id === selectedId) ?? null;
-  const preset = IMAGE_PRESETS[presetKey];
 
   const handleTemplateSelect = (template: Template) => {
     setActiveTemplate(template);
     const canvasState =
-      template.canvasState ?? getDefaultCanvasState(presetKey);
+      template.canvasState ??
+      getDefaultCanvasState(presetKey, customWidth, customHeight);
     dispatch({ type: "SET_STATE", payload: canvasState });
     setSelectedId(null);
   };
@@ -178,8 +186,32 @@ export function SectionEditorClient({
       </header>
 
       {!activeTemplate && !templates.length ? (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
+          <LayoutTemplate className="h-10 w-10 text-muted-foreground/40" />
           <p>Create a template to start editing</p>
+          <Button
+            onClick={async () => {
+              const t = await createTemplate(
+                sectionId,
+                presetKey,
+                "Template 1",
+                customWidth,
+                customHeight,
+              );
+              const newTemplate = t as unknown as Template;
+              setTemplates([newTemplate]);
+              setActiveTemplate(newTemplate);
+              dispatch({
+                type: "SET_STATE",
+                payload:
+                  newTemplate.canvasState ??
+                  getDefaultCanvasState(presetKey, customWidth, customHeight),
+              });
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Template
+          </Button>
         </div>
       ) : (
         <>
@@ -233,6 +265,8 @@ export function SectionEditorClient({
               sectionId={sectionId}
               projectId={projectId}
               presetKey={presetKey}
+              customWidth={customWidth}
+              customHeight={customHeight}
               onSelect={handleTemplateSelect}
               onTemplatesChange={setTemplates}
               collapsed={!showTemplates}

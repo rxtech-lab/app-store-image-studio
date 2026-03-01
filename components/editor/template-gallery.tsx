@@ -26,7 +26,9 @@ interface TemplateGalleryProps {
   activeTemplateId: string | null;
   sectionId: string;
   projectId: string;
-  presetKey: PresetKey;
+  presetKey: PresetKey | "custom";
+  customWidth?: number | null;
+  customHeight?: number | null;
   onSelect: (template: Template) => void;
   onTemplatesChange: (templates: Template[]) => void;
 }
@@ -37,6 +39,8 @@ export function TemplateGallery({
   sectionId,
   projectId,
   presetKey,
+  customWidth,
+  customHeight,
   onSelect,
   onTemplatesChange,
 }: TemplateGalleryProps) {
@@ -49,6 +53,8 @@ export function TemplateGallery({
         sectionId,
         presetKey,
         `Template ${templates.length + 1}`,
+        customWidth,
+        customHeight,
       );
       const newTemplates = [...templates, t as unknown as Template];
       onTemplatesChange(newTemplates);

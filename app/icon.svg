@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#a855f7"/>
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
     </linearGradient>
   </defs>
   <!-- App icon background -->
@@ -14,7 +14,7 @@
   <!-- Image frame in screen -->
   <rect x="12.5" y="9" width="7" height="5" rx="0.75" fill="white" fill-opacity="0.9"/>
   <!-- Mountain / landscape in image frame -->
-  <path d="M13 13.5 L15 11 L17 13 L18 12 L19.5 13.5 Z" fill="#a855f7"/>
+  <path d="M13 13.5 L15 11 L17 13 L18 12 L19.5 13.5 Z" fill="#3b82f6"/>
   <!-- Sun dot in image frame -->
   <circle cx="13.8" cy="10.2" r="0.7" fill="#fbbf24"/>
   <!-- Text lines below image (caption) -->

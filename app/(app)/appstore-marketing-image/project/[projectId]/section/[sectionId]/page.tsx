@@ -24,7 +24,9 @@ export default async function SectionEditorPage({
       projectName={project.name}
       projectDescription={project.description ?? undefined}
       sectionId={sectionId}
-      presetKey={section.presetKey as PresetKey}
+      presetKey={section.presetKey as PresetKey | "custom"}
+      customWidth={section.customWidth}
+      customHeight={section.customHeight}
       initialTemplates={templates}
       screenshots={screenshots}
     />
