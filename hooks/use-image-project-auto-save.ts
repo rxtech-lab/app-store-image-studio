@@ -3,10 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type Konva from "konva";
 import type { CanvasState } from "@/lib/canvas/types";
-import { saveIconCanvasState, saveIconThumbnail } from "@/actions/icon-projects";
+import {
+  saveImageProjectCanvasState,
+  saveImageProjectThumbnail,
+} from "@/actions/image-projects";
 
-export function useIconAutoSave(
-  iconProjectId: string,
+export function useImageProjectAutoSave(
+  imageProjectId: string,
   state: CanvasState,
   stageRef?: React.RefObject<Konva.Stage | null>,
   delay = 2000,
@@ -23,25 +26,25 @@ export function useIconAutoSave(
     setIsSaving(true);
     setIsSaved(false);
     try {
-      await saveIconCanvasState(iconProjectId, latestStateRef.current);
+      await saveImageProjectCanvasState(imageProjectId, latestStateRef.current);
       if (stageRef?.current) {
         const dataUrl = stageRef.current.toDataURL({ pixelRatio: 0.7 });
         const res = await fetch(dataUrl);
         const blob = await res.blob();
-        const file = new File([blob], `thumb-${iconProjectId}.png`, {
+        const file = new File([blob], `thumb-${imageProjectId}.png`, {
           type: "image/png",
         });
         const formData = new FormData();
-        formData.append("id", iconProjectId);
+        formData.append("id", imageProjectId);
         formData.append("file", file);
-        await saveIconThumbnail(formData);
+        await saveImageProjectThumbnail(formData);
       }
       setIsSaved(true);
       savedTimerRef.current = setTimeout(() => setIsSaved(false), 2000);
     } finally {
       setIsSaving(false);
     }
-  }, [iconProjectId, stageRef]);
+  }, [imageProjectId, stageRef]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {

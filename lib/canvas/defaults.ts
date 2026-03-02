@@ -32,6 +32,18 @@ export function getDefaultIconCanvasState(size: number): CanvasState {
   };
 }
 
+export function getDefaultImageCanvasState(
+  width: number,
+  height: number,
+): CanvasState {
+  return {
+    width,
+    height,
+    backgroundColor: "#1a1a2e",
+    elements: [],
+  };
+}
+
 export function resolvePresetDimensions(
   presetKey: string,
   customWidth?: number | null,

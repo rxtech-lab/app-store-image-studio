@@ -78,7 +78,7 @@ function getElementIcon(el: CanvasElement) {
   }
 }
 
-interface LayersPanelProps {
+export interface LayersPanelProps {
   elements: CanvasElement[];
   selectedIds: string[];
   onSelect: (id: string | null) => void;

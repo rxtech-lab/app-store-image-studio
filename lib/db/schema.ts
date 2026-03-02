@@ -66,6 +66,49 @@ export const iconProjects = sqliteTable("icon_projects", {
     .$onUpdate(() => sql`(datetime('now'))`),
 });
 
+export const imageProjects = sqliteTable("image_projects", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  width: integer("width").notNull().default(1024),
+  height: integer("height").notNull().default(1024),
+  canvasState: text("canvas_state", { mode: "json" }).$type<
+    import("@/lib/canvas/types").CanvasState
+  >(),
+  thumbnailUrl: text("thumbnail_url"),
+  aiMessages: text("ai_messages", { mode: "json" }).$type<unknown[]>(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`)
+    .$onUpdate(() => sql`(datetime('now'))`),
+});
+
+export const generatedImages = sqliteTable("generated_images", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => imageProjects.id, { onDelete: "cascade" }),
+  imageUrl: text("image_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  canvasState: text("canvas_state", { mode: "json" }).$type<
+    import("@/lib/canvas/types").CanvasState
+  >(),
+  aiMessages: text("ai_messages", { mode: "json" }).$type<unknown[]>(),
+  prompt: text("prompt"),
+  order: integer("order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`)
+    .$onUpdate(() => sql`(datetime('now'))`),
+});
+
 export const templates = sqliteTable("templates", {
   id: text("id").primaryKey(),
   sectionId: text("section_id")

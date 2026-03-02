@@ -6,14 +6,16 @@ import type Konva from "konva";
 import type { CanvasState } from "@/lib/canvas/types";
 import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
-import { getDefaultIconCanvasState } from "@/lib/canvas/defaults";
+import { getDefaultImageCanvasState } from "@/lib/canvas/defaults";
 import { uploadBackgroundImage } from "@/actions/templates";
+import { saveImageProjectAiMessages } from "@/actions/image-projects";
 import { useCanvasState } from "@/hooks/use-canvas-state";
-import { useIconAutoSave } from "@/hooks/use-icon-auto-save";
-import { useAiIconEdit } from "@/hooks/use-ai-icon-edit";
+import { useImageProjectAutoSave } from "@/hooks/use-image-project-auto-save";
+import { useAiImageEdit } from "@/hooks/use-ai-image-edit";
 import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
 import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
-import { IconExportPanel } from "@/components/icon/icon-export-panel";
+import { ImageExportPanel } from "@/components/image-gen/image-export-panel";
+import { CanvasSizeControl } from "@/components/image-gen/canvas-size-control";
 import { EditorLayout } from "@/components/editor/editor-layout";
 
 const CanvasEditor = dynamic(
@@ -22,35 +24,31 @@ const CanvasEditor = dynamic(
   { ssr: false },
 );
 
-interface IconEditorClientProps {
-  iconProjectId: string;
-  projectName: string;
-  projectDescription?: string;
-  size: number;
-  initialCanvasState?: CanvasState;
-  initialAiMessages: unknown[];
+interface ProjectClientProps {
+  project: {
+    id: string;
+    name: string;
+    description: string | null;
+    width: number;
+    height: number;
+    canvasState: CanvasState | null;
+    aiMessages: unknown[] | null;
+  };
 }
 
-export function IconEditorClient({
-  iconProjectId,
-  projectName,
-  projectDescription,
-  size,
-  initialCanvasState,
-  initialAiMessages,
-}: IconEditorClientProps) {
+export function ProjectClient({ project }: ProjectClientProps) {
   const stageRef = useRef<Konva.Stage | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showLayers, setShowLayers] = useState(true);
   const [isAddingImage, setIsAddingImage] = useState(false);
 
-  const defaultState = getDefaultIconCanvasState(size);
+  const defaultState = getDefaultImageCanvasState(project.width, project.height);
   const { state, dispatch, undo, addText, addAccent } = useCanvasState(
-    initialCanvasState ?? defaultState,
+    project.canvasState ?? defaultState,
   );
 
-  const { isSaving, isSaved, saveNow } = useIconAutoSave(
-    iconProjectId,
+  const { isSaving, isSaved, saveNow } = useImageProjectAutoSave(
+    project.id,
     state,
     stageRef,
   );
@@ -117,6 +115,13 @@ export function IconEditorClient({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedIds, undo, dispatch, saveNow, state.elements]);
 
+  const handleSaveMessages = useCallback(
+    (messages: UIMessage[]) => {
+      saveImageProjectAiMessages(project.id, messages);
+    },
+    [project.id],
+  );
+
   const {
     sendEdit,
     stopEdit,
@@ -125,18 +130,14 @@ export function IconEditorClient({
     statusText,
     aiText,
     hasHistory,
-    conceptImage,
-    dismissConcept,
-    confirmConcept,
-    regenConcept,
-  } = useAiIconEdit({
-    iconProjectId,
-    initialMessages: initialAiMessages as UIMessage[],
+  } = useAiImageEdit({
+    imageId: project.id,
+    initialMessages: (project.aiMessages ?? []) as UIMessage[],
     canvasState: state,
     dispatch,
     stageRef,
-    projectDescription,
     onComplete: saveNow,
+    onSaveMessages: handleSaveMessages,
   });
 
   const handleAddImage = useCallback(
@@ -155,7 +156,11 @@ export function IconEditorClient({
 
         const maxW = state.width * 0.6;
         const maxH = state.height * 0.6;
-        const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+        const scale = Math.min(
+          maxW / img.naturalWidth,
+          maxH / img.naturalHeight,
+          1,
+        );
         const w = img.naturalWidth * scale;
         const h = img.naturalHeight * scale;
 
@@ -181,6 +186,29 @@ export function IconEditorClient({
     [state.width, state.height, dispatch],
   );
 
+  const handleCanvasSizeChange = useCallback(
+    (newWidth: number, newHeight: number) => {
+      const scaleX = newWidth / state.width;
+      const scaleY = newHeight / state.height;
+      dispatch({
+        type: "SET_STATE",
+        payload: {
+          ...state,
+          width: newWidth,
+          height: newHeight,
+          elements: state.elements.map((el) => ({
+            ...el,
+            x: el.x * scaleX,
+            y: el.y * scaleY,
+            width: el.width * scaleX,
+            height: el.height * scaleY,
+          })),
+        },
+      });
+    },
+    [state, dispatch],
+  );
+
   const selectedElement =
     selectedIds.length === 1
       ? (state.elements.find((el) => el.id === selectedIds[0]) ?? null)
@@ -188,8 +216,8 @@ export function IconEditorClient({
 
   return (
     <EditorLayout
-      backHref="/icon-generation"
-      title={projectName}
+      backHref="/image-generation"
+      title={project.name}
       isSaving={isSaving}
       isSaved={isSaved}
       menus={[
@@ -204,13 +232,6 @@ export function IconEditorClient({
           onBackgroundColorChange={(c) =>
             dispatch({ type: "SET_BACKGROUND_COLOR", payload: c })
           }
-          backgroundImageUrl={state.backgroundImageUrl}
-          onRemoveBackgroundImage={() =>
-            dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" })
-          }
-          onSetBackgroundImage={(url) =>
-            dispatch({ type: "SET_BACKGROUND_IMAGE", payload: url })
-          }
           onAddText={addText}
           onAddAccent={addAccent}
           showLayers={showLayers}
@@ -221,11 +242,18 @@ export function IconEditorClient({
         />
       }
       toolbarRight={
-        <IconExportPanel
-          stageRef={stageRef}
-          canvasState={state}
-          projectName={projectName}
-        />
+        <>
+          <CanvasSizeControl
+            width={state.width}
+            height={state.height}
+            onChange={handleCanvasSizeChange}
+          />
+          <ImageExportPanel
+            stageRef={stageRef}
+            canvasState={state}
+            projectName={project.name}
+          />
+        </>
       }
       showLayers={showLayers}
       layersProps={{
@@ -234,9 +262,6 @@ export function IconEditorClient({
         onSelect: handleSelect,
         onMultiSelect: handleMultiSelect,
         dispatch,
-        backgroundImageUrl: state.backgroundImageUrl,
-        onRemoveBackgroundImage: () =>
-          dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" }),
       }}
       selectedElement={selectedElement}
       dispatch={dispatch}
@@ -257,9 +282,6 @@ export function IconEditorClient({
           statusText={statusText}
           aiText={aiText}
           hasHistory={hasHistory}
-          conceptImage={conceptImage}
-          onConfirmConcept={confirmConcept}
-          onRegenConcept={regenConcept}
         />
       </div>
     </EditorLayout>
