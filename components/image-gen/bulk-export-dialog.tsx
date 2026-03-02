@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { exportAllImages, type ImageFormat } from "@/actions/image-export";
+import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -22,6 +22,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Download, Loader2 } from "lucide-react";
+
+type ImageFormat = "png" | "webp" | "jpeg";
 
 interface BulkExportDialogProps {
   images: { id: string; imageUrl: string; prompt: string | null }[];
@@ -52,32 +54,47 @@ export function BulkExportDialog({
     setProgress("Preparing images...");
 
     try {
-      // Fetch all images and convert to base64
-      const imageData: { base64: string; name: string }[] = [];
+      const zip = new JSZip();
+      const ext = format === "jpeg" ? "jpg" : format;
+      const mimeType = format === "jpeg" ? "image/jpeg" : `image/${format}`;
 
       for (let i = 0; i < targetImages.length; i++) {
         const img = targetImages[i];
         setProgress(`Processing image ${i + 1} of ${targetImages.length}...`);
 
         const res = await fetch(img.imageUrl);
-        const arrayBuffer = await res.arrayBuffer();
-        const base64 = btoa(
-          String.fromCharCode(...new Uint8Array(arrayBuffer)),
-        );
+        const blob = await res.blob();
 
-        const name =
+        let outputBlob: Blob;
+        if (format === "png") {
+          outputBlob = blob;
+        } else {
+          const bitmap = await createImageBitmap(blob);
+          const canvas = document.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(bitmap, 0, 0);
+          bitmap.close();
+          outputBlob = await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob(
+              (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+              mimeType,
+              quality / 100,
+            );
+          });
+        }
+
+        const safeName =
           img.prompt?.slice(0, 50).replace(/[^a-zA-Z0-9 ]/g, "") ||
           `image_${i + 1}`;
-        imageData.push({ base64, name });
+        zip.file(`${safeName}.${ext}`, outputBlob);
       }
 
       setProgress("Creating ZIP...");
-      const zipData = await exportAllImages(imageData, format, quality);
+      const zipBlob = await zip.generateAsync({ type: "blob" });
 
-      const blob = new Blob([new Uint8Array(zipData)], {
-        type: "application/zip",
-      });
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(zipBlob);
       const link = document.createElement("a");
       link.download = `${projectName}-images.zip`;
       link.href = url;

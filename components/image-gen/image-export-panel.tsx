@@ -3,25 +3,18 @@
 import { useState } from "react";
 import type Konva from "konva";
 import type { CanvasState } from "@/lib/canvas/types";
-import { exportImage, type ImageFormat } from "@/actions/image-export";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Download, Loader2, ChevronDown } from "lucide-react";
+
+type ImageFormat = "png" | "webp" | "jpeg";
 
 interface ImageExportPanelProps {
   stageRef: React.RefObject<Konva.Stage | null>;
@@ -37,38 +30,46 @@ export function ImageExportPanel({
   const [exporting, setExporting] = useState(false);
   const [quality, setQuality] = useState(90);
 
-  const getStageBase64 = () => {
-    const stage = stageRef.current;
-    if (!stage) return null;
-    const scale = stage.scaleX();
-    const pixelRatio = 1 / scale;
-    const dataUrl = stage.toDataURL({ pixelRatio });
-    return dataUrl.split(",")[1];
-  };
-
   const handleExport = async (format: ImageFormat) => {
-    const base64 = getStageBase64();
-    if (!base64) return;
+    const stage = stageRef.current;
+    if (!stage) return;
 
     setExporting(true);
     try {
-      const data = await exportImage(
-        base64,
-        canvasState.width,
-        canvasState.height,
-        format,
-        quality,
-      );
+      const scale = stage.scaleX();
+      const pixelRatio = 1 / scale;
 
       const ext = format === "jpeg" ? "jpg" : format;
       const mimeType = format === "jpeg" ? "image/jpeg" : `image/${format}`;
-      const blob = new Blob([new Uint8Array(data)], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.download = `${projectName}.${ext}`;
-      link.href = url;
-      link.click();
-      URL.revokeObjectURL(url);
+
+      if (format === "png") {
+        // PNG: use Konva directly
+        const dataUrl = stage.toDataURL({ pixelRatio, mimeType });
+        triggerDownload(dataUrl, `${projectName}.${ext}`);
+      } else {
+        // WebP/JPEG: draw onto a canvas to apply quality
+        const dataUrl = stage.toDataURL({ pixelRatio });
+        const img = new window.Image();
+        img.src = dataUrl;
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = canvasState.width;
+        canvas.height = canvasState.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, mimeType, quality / 100),
+        );
+        if (!blob) return;
+
+        const url = URL.createObjectURL(blob);
+        triggerDownload(url, `${projectName}.${ext}`);
+        URL.revokeObjectURL(url);
+      }
     } finally {
       setExporting(false);
     }
@@ -76,7 +77,6 @@ export function ImageExportPanel({
 
   return (
     <div className="flex items-center gap-2 shrink-0">
-      {/* Quality control */}
       <div className="items-center gap-2 hidden sm:flex">
         <Label className="text-xs text-muted-foreground whitespace-nowrap">
           Quality
@@ -131,4 +131,11 @@ export function ImageExportPanel({
       </DropdownMenu>
     </div>
   );
+}
+
+function triggerDownload(url: string, filename: string) {
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = url;
+  link.click();
 }
