@@ -94,11 +94,13 @@ export async function POST(req: Request) {
       }),
       addImageElement: tool({
         description:
-          "Generate an image layer using AI and add it to the canvas. The image will have a transparent background.",
+          "Generate an image layer using AI and add it to the canvas. Choose transparentBackground based on subject type (true for icons/objects, false for background scenes), and size based on the element's aspect ratio.",
         inputSchema: zodSchema(addImageElementSchema),
         execute: async ({
           prompt: imgPrompt,
           referenceImageUrl,
+          transparentBackground,
+          size,
           ...params
         }) => {
           const promptText = `${imgPrompt}. High quality, detailed.`;
@@ -114,9 +116,12 @@ export async function POST(req: Request) {
             prompt: referenceBuffer
               ? { text: promptText, images: [referenceBuffer] }
               : promptText,
-            size: "1024x1024",
+            size: size ?? "1024x1024",
             providerOptions: {
-              openai: { background: "transparent", output_format: "png" },
+              openai: {
+                background: transparentBackground ? "transparent" : "opaque",
+                output_format: "png",
+              },
             },
           });
 
@@ -170,7 +175,7 @@ Available tools:
 - updateElement: Update element properties (position, size, style)
 - addTextElement: Add text to the canvas
 - addAccentElement: Add shapes (rectangles, circles)
-- addImageElement: Generate and add AI image layers (all AI-generated images go here as editable elements)
+- addImageElement: Generate and add AI image layers — set transparentBackground=true for foreground subjects (icons, objects), false for scenes/backgrounds; set size based on element aspect ratio
 - removeElement: Remove elements
 - reorderElement: Change layer order
 - viewCanvasPreview: View current canvas state

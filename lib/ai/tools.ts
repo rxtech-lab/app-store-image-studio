@@ -189,6 +189,18 @@ export const addImageElementSchema = z.object({
       "URL of a reference image (e.g. the concept image) to guide the generation style and composition",
     )
     .optional(),
+  transparentBackground: z
+    .boolean()
+    .default(true)
+    .describe(
+      "Whether the generated image should have a transparent background. Use true for foreground subjects (icons, characters, objects, logos). Use false for full background scenes, textures, or illustrations that fill the entire element.",
+    ),
+  size: z
+    .enum(["1024x1024", "1536x1024", "1024x1536"])
+    .default("1024x1024")
+    .describe(
+      "Image generation resolution. Choose based on element aspect ratio: '1536x1024' for landscape (width > height), '1024x1536' for portrait (height > width), '1024x1024' for square or near-square elements.",
+    ),
   x: z.number(),
   y: z.number(),
   width: z.number(),
