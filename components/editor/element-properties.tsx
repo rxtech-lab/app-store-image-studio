@@ -25,7 +25,7 @@ export function ElementProperties({
   };
 
   return (
-    <div className="space-y-4 p-3 border rounded-lg bg-card/95 backdrop-blur-sm shadow-lg">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-sm capitalize">{element.type}</h3>
         <div className="flex gap-1">
@@ -92,7 +92,7 @@ export function ElementProperties({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <Label className="text-xs">Width</Label>
+          <Label className="text-xs">W</Label>
           <Input
             type="number"
             value={Math.round(element.width)}
@@ -101,7 +101,7 @@ export function ElementProperties({
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Height</Label>
+          <Label className="text-xs">H</Label>
           <Input
             type="number"
             value={Math.round(element.height)}
@@ -109,6 +109,18 @@ export function ElementProperties({
             className="h-8"
           />
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs">Rotation (°)</Label>
+        <Input
+          type="number"
+          value={Math.round(element.rotation)}
+          onChange={(e) => update({ rotation: Number(e.target.value) })}
+          className="h-8"
+          min={-360}
+          max={360}
+        />
       </div>
 
       {/* Type-specific controls */}

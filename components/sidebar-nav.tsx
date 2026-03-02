@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ImageIcon, Gem } from "lucide-react";
+import { LayoutDashboard, ImageIcon, Gem, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -16,6 +16,11 @@ const navItems = [
     href: "/icon-generation",
     label: "Icon Generation",
     icon: Gem,
+  },
+  {
+    href: "/image-generation",
+    label: "Image Generation",
+    icon: Sparkles,
   },
 ];
 

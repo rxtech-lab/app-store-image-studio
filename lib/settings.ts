@@ -67,6 +67,41 @@ export const ICON_EXPORT_SIZES = {
 
 export type IconPlatform = keyof typeof ICON_EXPORT_SIZES;
 
+export const IMAGE_GEN_PRESETS = {
+  "square-1024": {
+    title: "Square (1024)",
+    width: 1024,
+    height: 1024,
+  },
+  "landscape-16-9": {
+    title: "Landscape 16:9",
+    width: 1920,
+    height: 1080,
+  },
+  "portrait-9-16": {
+    title: "Portrait 9:16",
+    width: 1080,
+    height: 1920,
+  },
+  "landscape-4-3": {
+    title: "Landscape 4:3",
+    width: 1440,
+    height: 1080,
+  },
+  "portrait-3-4": {
+    title: "Portrait 3:4",
+    width: 1080,
+    height: 1440,
+  },
+  "social-square": {
+    title: "Social Square",
+    width: 1080,
+    height: 1080,
+  },
+} as const;
+
+export type ImageGenPresetKey = keyof typeof IMAGE_GEN_PRESETS;
+
 export const AI_CONFIG = {
   imageModel: "google/gemini-3.1-flash-image-preview",
   iconImageModel: "openai/gpt-image-1.5",

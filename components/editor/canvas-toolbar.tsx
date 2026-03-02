@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Popover as PopoverPrimitive } from "radix-ui";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +24,161 @@ import {
 } from "lucide-react";
 import { uploadBackgroundImage } from "@/actions/templates";
 
+// ── Color helpers ────────────────────────────────────────────────────────────
+
+function parseColor(color: string): { hex: string; opacityPct: number } {
+  if (color === "transparent") return { hex: "#1a1a2e", opacityPct: 0 };
+
+  const rgba = color.match(
+    /rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\s*\)/,
+  );
+  if (rgba) {
+    const [r, g, b] = [rgba[1], rgba[2], rgba[3]].map(Number);
+    const a = rgba[4] !== undefined ? parseFloat(rgba[4]) : 1;
+    const hex =
+      "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+    return { hex, opacityPct: Math.round(a * 100) };
+  }
+
+  return { hex: color.startsWith("#") ? color : "#ffffff", opacityPct: 100 };
+}
+
+function buildColor(hex: string, opacityPct: number): string {
+  if (opacityPct === 0) return "transparent";
+  if (opacityPct === 100) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${(opacityPct / 100).toFixed(2)})`;
+}
+
+// ── BgColorPicker ────────────────────────────────────────────────────────────
+
+function BgColorPicker({
+  color,
+  onChange,
+}: {
+  color: string;
+  onChange: (color: string) => void;
+}) {
+  const { hex, opacityPct } = parseColor(color);
+  // Remembers the last solid hex so clicking "Transparent" and then back restores it
+  const lastHexRef = useRef(opacityPct > 0 ? hex : "#1a1a2e");
+  if (opacityPct > 0) lastHexRef.current = hex;
+  const displayHex = opacityPct === 0 ? lastHexRef.current : hex;
+
+  return (
+    <PopoverPrimitive.Root>
+      <TooltipProvider>
+        <Tooltip>
+          <PopoverPrimitive.Trigger asChild>
+            <TooltipTrigger asChild>
+              <button
+                className="w-7 h-7 rounded border border-border relative overflow-hidden shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                title="Background color"
+                style={{
+                  backgroundImage: [
+                    "linear-gradient(45deg, #ccc 25%, transparent 25%)",
+                    "linear-gradient(-45deg, #ccc 25%, transparent 25%)",
+                    "linear-gradient(45deg, transparent 75%, #ccc 75%)",
+                    "linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+                  ].join(","),
+                  backgroundSize: "8px 8px",
+                  backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+                }}
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{ backgroundColor: opacityPct === 0 ? "transparent" : color }}
+                />
+              </button>
+            </TooltipTrigger>
+          </PopoverPrimitive.Trigger>
+          <TooltipContent side="bottom">Background color</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          sideOffset={8}
+          className="z-50 rounded-lg border bg-popover p-3 shadow-md w-48 space-y-3"
+        >
+          {/* Transparent / Color toggle */}
+          <div className="flex gap-1.5">
+            {/* Transparent option */}
+            <button
+              onClick={() => {
+                lastHexRef.current = displayHex;
+                onChange("transparent");
+              }}
+              className={`flex-1 h-8 rounded border-2 relative overflow-hidden cursor-pointer transition-colors ${
+                opacityPct === 0
+                  ? "border-primary"
+                  : "border-border hover:border-muted-foreground"
+              }`}
+              style={{
+                backgroundImage: [
+                  "linear-gradient(45deg, #ccc 25%, transparent 25%)",
+                  "linear-gradient(-45deg, #ccc 25%, transparent 25%)",
+                  "linear-gradient(45deg, transparent 75%, #ccc 75%)",
+                  "linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+                ].join(","),
+                backgroundSize: "8px 8px",
+                backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
+              }}
+              title="Transparent"
+            />
+            {/* Solid color option */}
+            <button
+              type="button"
+              onClick={() => { if (opacityPct === 0) onChange(displayHex); }}
+              className={`flex-1 flex items-center gap-1.5 h-8 px-1.5 rounded border-2 bg-background transition-colors ${
+                opacityPct > 0
+                  ? "border-primary"
+                  : "border-border hover:border-muted-foreground cursor-pointer"
+              }`}
+            >
+              <input
+                type="color"
+                value={displayHex}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) =>
+                  onChange(buildColor(e.target.value, opacityPct === 0 ? 100 : opacityPct))
+                }
+                className="w-5 h-5 p-0 cursor-pointer rounded border-0 shrink-0 bg-transparent"
+              />
+              <span className="text-xs text-muted-foreground font-mono truncate">
+                {displayHex}
+              </span>
+            </button>
+          </div>
+
+          {/* Opacity row */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Opacity</span>
+              <span className="text-xs font-mono tabular-nums">
+                {opacityPct}%
+              </span>
+            </div>
+            <Slider
+              value={[opacityPct]}
+              onValueChange={([v]) => onChange(buildColor(displayHex, v))}
+              min={0}
+              max={100}
+              step={1}
+            />
+          </div>
+
+          <PopoverPrimitive.Arrow className="fill-border" />
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  );
+}
+
+// ── CanvasToolbar ────────────────────────────────────────────────────────────
+
 interface CanvasToolbarProps {
   backgroundColor: string;
   onBackgroundColorChange: (color: string) => void;
@@ -34,6 +191,7 @@ interface CanvasToolbarProps {
   onToggleLayers: () => void;
   showTemplates?: boolean;
   onToggleTemplates?: () => void;
+  /** @deprecated transparent background is always supported via the color picker */
   supportTransparent?: boolean;
   onAddImage?: (file: File) => void;
   isAddingImage?: boolean;
@@ -51,7 +209,6 @@ export function CanvasToolbar({
   onToggleLayers,
   showTemplates,
   onToggleTemplates,
-  supportTransparent,
   onAddImage,
   isAddingImage,
 }: CanvasToolbarProps) {
@@ -70,7 +227,6 @@ export function CanvasToolbar({
       onSetBackgroundImage(url);
     } finally {
       setIsUploading(false);
-      // Reset so the same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -107,39 +263,15 @@ export function CanvasToolbar({
           <TooltipContent side="bottom">Toggle Layers</TooltipContent>
         </Tooltip>
       </TooltipProvider>
+
       <div className="w-px h-5 bg-border" />
-      {supportTransparent && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={backgroundColor === "transparent" ? "default" : "ghost"}
-                size="icon-xs"
-                onClick={() =>
-                  onBackgroundColorChange(
-                    backgroundColor === "transparent" ? "#1a1a2e" : "transparent",
-                  )
-                }
-              >
-                <span className="h-4 w-4 inline-flex items-center justify-center text-xs font-mono">T</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {backgroundColor === "transparent"
-                ? "Set solid background"
-                : "Transparent background"}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-      <input
-        type="color"
-        value={backgroundColor === "transparent" ? "#000000" : backgroundColor}
-        onChange={(e) => onBackgroundColorChange(e.target.value)}
-        className="w-7 h-7 p-0.5 cursor-pointer rounded border border-border"
-        title="Background color"
-        disabled={backgroundColor === "transparent"}
+
+      {/* Background color picker (color + opacity, supports transparent) */}
+      <BgColorPicker
+        color={backgroundColor}
+        onChange={onBackgroundColorChange}
       />
+
       {onSetBackgroundImage && (
         <TooltipProvider>
           <Tooltip>
@@ -186,12 +318,11 @@ export function CanvasToolbar({
                 <ImageOff className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">
-              Remove Background Image
-            </TooltipContent>
+            <TooltipContent side="bottom">Remove Background Image</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       )}
+
       <Button
         variant="ghost"
         size="icon-xs"
@@ -224,6 +355,7 @@ export function CanvasToolbar({
       >
         <RectangleHorizontal className="h-4 w-4" />
       </Button>
+
       {onAddImage && (
         <>
           <TooltipProvider>

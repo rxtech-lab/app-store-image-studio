@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import type Konva from "konva";
 import type { PresetKey } from "@/lib/settings";
 import type { CanvasState } from "@/lib/canvas/types";
@@ -15,15 +14,13 @@ import { useAutoSave } from "@/hooks/use-auto-save";
 import { useAiEdit } from "@/hooks/use-ai-edit";
 import { createTemplate } from "@/actions/templates";
 import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
-import { ElementProperties } from "@/components/editor/element-properties";
 import { TemplateStrip } from "@/components/editor/template-strip";
 import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
-import { LayersPanel } from "@/components/editor/layers-panel";
 import { ExportButtons } from "@/components/editor/export-buttons";
 import { Button } from "@/components/ui/button";
 import { ScreenshotsDialog } from "@/components/editor/screenshots-dialog";
-import { ArrowLeft, Loader2, LayoutTemplate, Plus } from "lucide-react";
-import { SidebarToggle } from "@/components/app-layout";
+import { EditorLayout } from "@/components/editor/editor-layout";
+import { LayoutTemplate, Plus } from "lucide-react";
 
 const CanvasEditor = dynamic(
   () =>
@@ -221,30 +218,15 @@ export function SectionEditorClient({
     setSelectedIds([]);
   };
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Site header */}
-      <header className="flex items-center gap-3 border-b px-4 h-12 shrink-0">
-        <SidebarToggle />
-        <div className="w-px h-5 bg-border" />
-        <Button variant="ghost" size="icon-xs" asChild>
-          <Link href={`/appstore-marketing-image/project/${projectId}`}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <span className="text-sm font-medium truncate">{projectName}</span>
-        {isSaving ? (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Saving...
-          </span>
-        ) : isSaved ? (
-          <span className="text-xs text-muted-foreground ml-2">Saved</span>
-        ) : null}
-      </header>
-
-      {!activeTemplate && !templates.length ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
+  if (!activeTemplate && !templates.length) {
+    return (
+      <EditorLayout
+        backHref={`/appstore-marketing-image/project/${projectId}`}
+        title={projectName}
+        isSaving={isSaving}
+        isSaved={isSaved}
+      >
+        <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
           <LayoutTemplate className="h-10 w-10 text-muted-foreground/40" />
           <p>Create a template to start editing</p>
           <Button
@@ -271,115 +253,111 @@ export function SectionEditorClient({
             Create Template
           </Button>
         </div>
-      ) : (
-        <>
-          {/* Toolbar: canvas tools + export */}
-          <div className="flex items-center gap-3 px-3 py-1.5 border-b bg-card">
-            <CanvasToolbar
-              backgroundColor={state.backgroundColor}
-              onBackgroundColorChange={(c) =>
-                dispatch({ type: "SET_BACKGROUND_COLOR", payload: c })
-              }
-              backgroundImageUrl={state.backgroundImageUrl}
-              onRemoveBackgroundImage={() =>
-                dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" })
-              }
-              onSetBackgroundImage={(url) =>
-                dispatch({ type: "SET_BACKGROUND_IMAGE", payload: url })
-              }
-              onAddText={addText}
-              onAddAccent={addAccent}
-              showLayers={showLayers}
-              onToggleLayers={() => setShowLayers((v) => !v)}
-              showTemplates={showTemplates}
-              onToggleTemplates={() => setShowTemplates((v) => !v)}
-              onAddImage={handleAddImage}
-              isAddingImage={isAddingImage}
-            />
-            <div className="w-px h-5 bg-border" />
-            {/* Screenshots dialog */}
-            {screenshots.length > 0 && (
-              <>
-                <ScreenshotsDialog
-                  screenshots={screenshots}
-                  onAdd={addScreenshot}
-                />
-                <div className="w-px h-5 bg-border" />
-              </>
-            )}
-            <div className="flex-1" />
-            <ExportButtons
-              stageRef={stageRef}
-              canvasWidth={state.width}
-              canvasHeight={state.height}
-              projectName={projectName}
-            />
-          </div>
+      </EditorLayout>
+    );
+  }
 
-          {/* Canvas area */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* Template sidebar */}
-            <TemplateStrip
-              templates={templates}
-              activeTemplateId={activeTemplate?.id ?? null}
-              sectionId={sectionId}
-              projectId={projectId}
-              presetKey={presetKey}
-              customWidth={customWidth}
-              customHeight={customHeight}
-              onSelect={handleTemplateSelect}
-              onTemplatesChange={setTemplates}
-              collapsed={!showTemplates}
-              onToggleCollapse={() => setShowTemplates((v) => !v)}
-            />
-            {/* Layers panel */}
-            {showLayers && (
-              <LayersPanel
-                elements={state.elements}
-                selectedIds={selectedIds}
-                onSelect={handleSelect}
-                dispatch={dispatch}
-                backgroundImageUrl={state.backgroundImageUrl}
-                onRemoveBackgroundImage={() =>
-                  dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" })
-                }
-              />
-            )}
-            {/* Canvas viewport */}
-            <div className="flex-1 flex items-center justify-center relative overflow-auto bg-muted/30 p-4">
-              <CanvasEditor
-                state={state}
-                dispatch={dispatch}
-                selectedIds={selectedIds}
-                onSelect={handleSelect}
-                stageRef={stageRef}
+  return (
+    <EditorLayout
+      backHref={`/appstore-marketing-image/project/${projectId}`}
+      title={projectName}
+      isSaving={isSaving}
+      isSaved={isSaved}
+      menus={[
+        {
+          label: "File",
+          items: [{ label: "Save", shortcut: "⌘S", onClick: saveNow }],
+        },
+      ]}
+      toolbarLeft={
+        <>
+          <CanvasToolbar
+            backgroundColor={state.backgroundColor}
+            onBackgroundColorChange={(c) =>
+              dispatch({ type: "SET_BACKGROUND_COLOR", payload: c })
+            }
+            backgroundImageUrl={state.backgroundImageUrl}
+            onRemoveBackgroundImage={() =>
+              dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" })
+            }
+            onSetBackgroundImage={(url) =>
+              dispatch({ type: "SET_BACKGROUND_IMAGE", payload: url })
+            }
+            onAddText={addText}
+            onAddAccent={addAccent}
+            showLayers={showLayers}
+            onToggleLayers={() => setShowLayers((v) => !v)}
+            showTemplates={showTemplates}
+            onToggleTemplates={() => setShowTemplates((v) => !v)}
+            onAddImage={handleAddImage}
+            isAddingImage={isAddingImage}
+          />
+          {screenshots.length > 0 && (
+            <>
+              <div className="w-px h-5 bg-border" />
+              <ScreenshotsDialog
                 screenshots={screenshots}
+                onAdd={addScreenshot}
               />
-              {/* Floating element properties */}
-              {selectedElement && (
-                <div className="absolute right-4 top-4 w-60 z-10">
-                  <ElementProperties
-                    element={selectedElement}
-                    dispatch={dispatch}
-                  />
-                </div>
-              )}
-              {/* AI Edit button/prompt at bottom center */}
-              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
-                <AiPromptBar
-                  onSend={sendEdit}
-                  onStop={stopEdit}
-                  onClearHistory={clearHistory}
-                  isLoading={aiLoading}
-                  statusText={statusText}
-                  aiText={aiText}
-                  hasHistory={hasHistory}
-                />
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </>
-      )}
-    </div>
+      }
+      toolbarRight={
+        <ExportButtons
+          stageRef={stageRef}
+          canvasWidth={state.width}
+          canvasHeight={state.height}
+          projectName={projectName}
+        />
+      }
+      leftPanel={
+        <TemplateStrip
+          templates={templates}
+          activeTemplateId={activeTemplate?.id ?? null}
+          sectionId={sectionId}
+          projectId={projectId}
+          presetKey={presetKey}
+          customWidth={customWidth}
+          customHeight={customHeight}
+          onSelect={handleTemplateSelect}
+          onTemplatesChange={setTemplates}
+          collapsed={!showTemplates}
+          onToggleCollapse={() => setShowTemplates((v) => !v)}
+        />
+      }
+      showLayers={showLayers}
+      layersProps={{
+        elements: state.elements,
+        selectedIds,
+        onSelect: handleSelect,
+        dispatch,
+        backgroundImageUrl: state.backgroundImageUrl,
+        onRemoveBackgroundImage: () =>
+          dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" }),
+      }}
+      selectedElement={selectedElement}
+      dispatch={dispatch}
+    >
+      <CanvasEditor
+        state={state}
+        dispatch={dispatch}
+        selectedIds={selectedIds}
+        onSelect={handleSelect}
+        stageRef={stageRef}
+        screenshots={screenshots}
+      />
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+        <AiPromptBar
+          onSend={sendEdit}
+          onStop={stopEdit}
+          onClearHistory={clearHistory}
+          isLoading={aiLoading}
+          statusText={statusText}
+          aiText={aiText}
+          hasHistory={hasHistory}
+        />
+      </div>
+    </EditorLayout>
   );
 }

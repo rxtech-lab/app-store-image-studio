@@ -144,18 +144,12 @@ export async function saveIconCanvasState(
     .where(eq(iconProjects.id, id));
 }
 
-export async function saveIconThumbnail(
-  id: string,
-  dataUrl: string,
-): Promise<string> {
+export async function saveIconThumbnail(formData: FormData): Promise<string> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
-  const buffer = Buffer.from(base64, "base64");
-  const file = new File([buffer], `icon-thumb-${id}.png`, {
-    type: "image/png",
-  });
+  const id = formData.get("id") as string;
+  const file = formData.get("file") as File;
 
   const url = await uploadBlob(
     file,

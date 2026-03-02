@@ -4,6 +4,8 @@ import {
   screenshotSections,
   screenshots,
   templates,
+  imageProjects,
+  generatedImages,
 } from "./schema";
 
 export const projectsRelations = relations(projects, ({ many }) => ({
@@ -19,7 +21,7 @@ export const screenshotSectionsRelations = relations(
     }),
     screenshots: many(screenshots),
     templates: many(templates),
-  })
+  }),
 );
 
 export const screenshotsRelations = relations(screenshots, ({ one }) => ({
@@ -35,3 +37,17 @@ export const templatesRelations = relations(templates, ({ one }) => ({
     references: [screenshotSections.id],
   }),
 }));
+
+export const imageProjectsRelations = relations(imageProjects, ({ many }) => ({
+  images: many(generatedImages),
+}));
+
+export const generatedImagesRelations = relations(
+  generatedImages,
+  ({ one }) => ({
+    project: one(imageProjects, {
+      fields: [generatedImages.projectId],
+      references: [imageProjects.id],
+    }),
+  }),
+);

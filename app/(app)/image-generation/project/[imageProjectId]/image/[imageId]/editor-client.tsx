@@ -6,14 +6,15 @@ import type Konva from "konva";
 import type { CanvasState } from "@/lib/canvas/types";
 import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
-import { getDefaultIconCanvasState } from "@/lib/canvas/defaults";
+import { getDefaultImageCanvasState } from "@/lib/canvas/defaults";
 import { uploadBackgroundImage } from "@/actions/templates";
 import { useCanvasState } from "@/hooks/use-canvas-state";
-import { useIconAutoSave } from "@/hooks/use-icon-auto-save";
-import { useAiIconEdit } from "@/hooks/use-ai-icon-edit";
+import { useImageAutoSave } from "@/hooks/use-image-auto-save";
+import { useAiImageEdit } from "@/hooks/use-ai-image-edit";
 import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
 import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
-import { IconExportPanel } from "@/components/icon/icon-export-panel";
+import { ImageExportPanel } from "@/components/image-gen/image-export-panel";
+import { CanvasSizeControl } from "@/components/image-gen/canvas-size-control";
 import { EditorLayout } from "@/components/editor/editor-layout";
 
 const CanvasEditor = dynamic(
@@ -22,35 +23,37 @@ const CanvasEditor = dynamic(
   { ssr: false },
 );
 
-interface IconEditorClientProps {
-  iconProjectId: string;
+interface ImageEditorClientProps {
+  imageId: string;
+  imageProjectId: string;
   projectName: string;
-  projectDescription?: string;
-  size: number;
   initialCanvasState?: CanvasState;
   initialAiMessages: unknown[];
+  width: number;
+  height: number;
 }
 
-export function IconEditorClient({
-  iconProjectId,
+export function ImageEditorClient({
+  imageId,
+  imageProjectId,
   projectName,
-  projectDescription,
-  size,
   initialCanvasState,
   initialAiMessages,
-}: IconEditorClientProps) {
+  width,
+  height,
+}: ImageEditorClientProps) {
   const stageRef = useRef<Konva.Stage | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showLayers, setShowLayers] = useState(true);
   const [isAddingImage, setIsAddingImage] = useState(false);
 
-  const defaultState = getDefaultIconCanvasState(size);
+  const defaultState = getDefaultImageCanvasState(width, height);
   const { state, dispatch, undo, addText, addAccent } = useCanvasState(
     initialCanvasState ?? defaultState,
   );
 
-  const { isSaving, isSaved, saveNow } = useIconAutoSave(
-    iconProjectId,
+  const { isSaving, isSaved, saveNow } = useImageAutoSave(
+    imageId,
     state,
     stageRef,
   );
@@ -60,14 +63,11 @@ export function IconEditorClient({
     [],
   );
 
-  const handleMultiSelect = useCallback(
-    (id: string) => {
-      setSelectedIds((prev) =>
-        prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-      );
-    },
-    [],
-  );
+  const handleMultiSelect = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+    );
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -125,17 +125,12 @@ export function IconEditorClient({
     statusText,
     aiText,
     hasHistory,
-    conceptImage,
-    dismissConcept,
-    confirmConcept,
-    regenConcept,
-  } = useAiIconEdit({
-    iconProjectId,
+  } = useAiImageEdit({
+    imageId,
     initialMessages: initialAiMessages as UIMessage[],
     canvasState: state,
     dispatch,
     stageRef,
-    projectDescription,
     onComplete: saveNow,
   });
 
@@ -155,7 +150,11 @@ export function IconEditorClient({
 
         const maxW = state.width * 0.6;
         const maxH = state.height * 0.6;
-        const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+        const scale = Math.min(
+          maxW / img.naturalWidth,
+          maxH / img.naturalHeight,
+          1,
+        );
         const w = img.naturalWidth * scale;
         const h = img.naturalHeight * scale;
 
@@ -181,6 +180,29 @@ export function IconEditorClient({
     [state.width, state.height, dispatch],
   );
 
+  const handleCanvasSizeChange = useCallback(
+    (newWidth: number, newHeight: number) => {
+      const scaleX = newWidth / state.width;
+      const scaleY = newHeight / state.height;
+      dispatch({
+        type: "SET_STATE",
+        payload: {
+          ...state,
+          width: newWidth,
+          height: newHeight,
+          elements: state.elements.map((el) => ({
+            ...el,
+            x: el.x * scaleX,
+            y: el.y * scaleY,
+            width: el.width * scaleX,
+            height: el.height * scaleY,
+          })),
+        },
+      });
+    },
+    [state, dispatch],
+  );
+
   const selectedElement =
     selectedIds.length === 1
       ? (state.elements.find((el) => el.id === selectedIds[0]) ?? null)
@@ -188,7 +210,7 @@ export function IconEditorClient({
 
   return (
     <EditorLayout
-      backHref="/icon-generation"
+      backHref={`/image-generation/project/${imageProjectId}`}
       title={projectName}
       isSaving={isSaving}
       isSaved={isSaved}
@@ -215,17 +237,23 @@ export function IconEditorClient({
           onAddAccent={addAccent}
           showLayers={showLayers}
           onToggleLayers={() => setShowLayers((v) => !v)}
-          supportTransparent
           onAddImage={handleAddImage}
           isAddingImage={isAddingImage}
         />
       }
       toolbarRight={
-        <IconExportPanel
-          stageRef={stageRef}
-          canvasState={state}
-          projectName={projectName}
-        />
+        <>
+          <CanvasSizeControl
+            width={state.width}
+            height={state.height}
+            onChange={handleCanvasSizeChange}
+          />
+          <ImageExportPanel
+            stageRef={stageRef}
+            canvasState={state}
+            projectName={projectName}
+          />
+        </>
       }
       showLayers={showLayers}
       layersProps={{
@@ -257,9 +285,6 @@ export function IconEditorClient({
           statusText={statusText}
           aiText={aiText}
           hasHistory={hasHistory}
-          conceptImage={conceptImage}
-          onConfirmConcept={confirmConcept}
-          onRegenConcept={regenConcept}
         />
       </div>
     </EditorLayout>

@@ -140,7 +140,7 @@ function ScreenshotNode({
           });
         }}
       />
-      {isSelected && <Transformer ref={trRef} rotateEnabled />}
+      {isSelected && <Transformer ref={trRef} rotateEnabled keepRatio />}
     </>
   );
 }
@@ -340,7 +340,7 @@ function ImageNode({
           });
         }}
       />
-      {isSelected && <Transformer ref={trRef} rotateEnabled />}
+      {isSelected && <Transformer ref={trRef} rotateEnabled keepRatio />}
     </>
   );
 }
