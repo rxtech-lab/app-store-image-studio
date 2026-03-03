@@ -1,28 +1,23 @@
 import {
   streamText,
-  generateImage,
-  tool,
-  zodSchema,
   convertToModelMessages,
   stepCountIs,
   type UIMessage,
 } from "ai";
 import { gateway } from "@ai-sdk/gateway";
-import { nanoid } from "nanoid";
 import { auth } from "@/lib/auth";
-import { uploadBlob } from "@/lib/blob";
 import { AI_CONFIG } from "@/lib/settings";
 import { summarizeCanvasState } from "@/lib/ai/summarize-canvas";
 import {
-  setBackgroundColorSchema,
-  updateElementSchema,
-  addTextElementSchema,
-  addAccentElementSchema,
-  addSvgElementSchema,
-  removeElementSchema,
-  viewCanvasPreviewSchema,
-  reorderElementSchema,
-  addImageElementSchema,
+  setBackgroundColorTool,
+  updateElementTool,
+  addTextElementTool,
+  addAccentElementTool,
+  removeElementTool,
+  addSvgElementTool,
+  reorderElementTool,
+  viewCanvasPreviewTool,
+  createImageEditAddImageElementTool,
 } from "@/lib/ai/tools";
 import type { CanvasState } from "@/lib/canvas/types";
 
@@ -71,112 +66,15 @@ export async function POST(req: Request) {
     toolChoice: isFollowUp ? "auto" : "required",
     stopWhen: stepCountIs(20),
     tools: {
-      setBackgroundColor: tool({
-        description:
-          "Set the canvas background to a solid color. Use 'transparent' for a transparent background.",
-        inputSchema: zodSchema(setBackgroundColorSchema),
-        execute: async ({ color }) => ({ color }),
-      }),
-      updateElement: tool({
-        description:
-          "Update properties of an existing canvas element by its ID.",
-        inputSchema: zodSchema(updateElementSchema),
-        execute: async (params) => params,
-      }),
-      addTextElement: tool({
-        description: "Add a new text element to the canvas",
-        inputSchema: zodSchema(addTextElementSchema),
-        execute: async (params) => ({
-          ...params,
-          id: nanoid(),
-          type: "text" as const,
-        }),
-      }),
-      addAccentElement: tool({
-        description:
-          "Add a new accent/shape element to the canvas (rectangle, circle, rounded rectangle).",
-        inputSchema: zodSchema(addAccentElementSchema),
-        execute: async (params) => ({
-          ...params,
-          id: nanoid(),
-          type: "accent" as const,
-        }),
-      }),
-      removeElement: tool({
-        description: "Remove an element from the canvas by its ID",
-        inputSchema: zodSchema(removeElementSchema),
-        execute: async ({ id }) => ({ id }),
-      }),
-      addImageElement: tool({
-        description:
-          "Generate an image layer using AI and add it to the canvas. Choose transparentBackground based on subject type (true for icons/objects, false for background scenes), and size based on the element's aspect ratio.",
-        inputSchema: zodSchema(addImageElementSchema),
-        execute: async ({
-          prompt: imgPrompt,
-          referenceImageUrl,
-          transparentBackground,
-          size,
-          ...params
-        }) => {
-          const promptText = `${imgPrompt}. High quality, detailed.`;
-
-          let referenceBuffer: Buffer | undefined;
-          if (referenceImageUrl) {
-            const res = await fetch(referenceImageUrl);
-            referenceBuffer = Buffer.from(await res.arrayBuffer());
-          }
-
-          const result = await generateImage({
-            model: gateway.image(AI_CONFIG.iconImageModel),
-            prompt: referenceBuffer
-              ? { text: promptText, images: [referenceBuffer] }
-              : promptText,
-            size: size ?? "1024x1024",
-            providerOptions: {
-              openai: {
-                background: transparentBackground ? "transparent" : "opaque",
-                output_format: "png",
-              },
-            },
-          });
-
-          const buffer = Buffer.from(result.images[0].base64, "base64");
-          const file = new File([buffer], "image-layer.png", {
-            type: "image/png",
-          });
-          const url = await uploadBlob(
-            file,
-            `image-gen-layers/${blobPrefix}/${Date.now()}.png`,
-          );
-          return {
-            ...params,
-            id: nanoid(),
-            type: "image" as const,
-            imageUrl: url,
-          };
-        },
-      }),
-      addSvgElement: tool({
-        description:
-          "Add an SVG element to the canvas. Use this for text with specific styling, icons, badges, logos, or any vector graphics. Prefer this over addTextElement when the user asks for SVG text or styled text elements.",
-        inputSchema: zodSchema(addSvgElementSchema),
-        execute: async (params) => ({
-          ...params,
-          id: nanoid(),
-          type: "svg" as const,
-        }),
-      }),
-      reorderElement: tool({
-        description:
-          "Change the layer order of a canvas element. Use 'front' to bring to top, 'back' to send to bottom.",
-        inputSchema: zodSchema(reorderElementSchema),
-        execute: async (params) => params,
-      }),
-      viewCanvasPreview: tool({
-        description:
-          "View a preview image of the current canvas design. Use this to verify the visual result.",
-        inputSchema: zodSchema(viewCanvasPreviewSchema),
-      }),
+      setBackgroundColor: setBackgroundColorTool,
+      updateElement: updateElementTool,
+      addTextElement: addTextElementTool,
+      addAccentElement: addAccentElementTool,
+      removeElement: removeElementTool,
+      addImageElement: createImageEditAddImageElementTool(blobPrefix),
+      addSvgElement: addSvgElementTool,
+      reorderElement: reorderElementTool,
+      viewCanvasPreview: viewCanvasPreviewTool,
     },
   });
 

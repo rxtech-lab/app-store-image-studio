@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { tool, zodSchema, generateImage, generateText } from "ai";
+import { gateway } from "@ai-sdk/gateway";
+import { nanoid } from "nanoid";
+import { uploadBlob } from "@/lib/blob";
+import { AI_CONFIG } from "@/lib/settings";
+import { generateAndUploadImage } from "@/lib/ai/generate-image";
+import type { CanvasState } from "@/lib/canvas/types";
 
 export const setBackgroundColorSchema = z.object({
   color: z.string().describe("Hex color string, e.g. '#1a1a2e'"),
@@ -228,3 +235,364 @@ export const addImageElementSchema = z.object({
   opacity: z.number().min(0).max(1).default(1),
   cornerRadius: z.number().default(0),
 });
+
+// ─── Stateless tools (identical across all routes) ─────────────────
+
+export const setBackgroundColorTool = tool({
+  description:
+    "Set the canvas background to a solid color. Use 'transparent' for a transparent background.",
+  inputSchema: zodSchema(setBackgroundColorSchema),
+  execute: async ({ color }) => ({ color }),
+});
+
+export const updateElementTool = tool({
+  description:
+    "Update properties of an existing canvas element by its ID. You can change position, size, rotation, text, colors, and other type-specific properties.",
+  inputSchema: zodSchema(updateElementSchema),
+  execute: async (params) => params,
+});
+
+export const addTextElementTool = tool({
+  description: "Add a new text element to the canvas",
+  inputSchema: zodSchema(addTextElementSchema),
+  execute: async (params) => ({
+    ...params,
+    id: nanoid(),
+    type: "text" as const,
+  }),
+});
+
+export const addAccentElementTool = tool({
+  description:
+    "Add a new accent/shape element (rectangle, circle, or rounded rectangle) to the canvas. Add descriptive name to the layer as well.",
+  inputSchema: zodSchema(addAccentElementSchema),
+  execute: async (params) => ({
+    ...params,
+    id: nanoid(),
+    type: "accent" as const,
+  }),
+});
+
+export const removeElementTool = tool({
+  description: "Remove an element from the canvas by its ID",
+  inputSchema: zodSchema(removeElementSchema),
+  execute: async ({ id }) => ({ id }),
+});
+
+export const addSvgElementTool = tool({
+  description:
+    "Add an SVG element to the canvas. Use this for text with specific styling, icons, badges, logos, or any vector graphics. Prefer this over addTextElement when the user asks for SVG text or styled text elements.",
+  inputSchema: zodSchema(addSvgElementSchema),
+  execute: async (params) => ({
+    ...params,
+    id: nanoid(),
+    type: "svg" as const,
+  }),
+});
+
+export const reorderElementTool = tool({
+  description:
+    "Change the layer order of a canvas element. Use 'front' to bring to top, 'back' to send to bottom, 'up' to move forward one layer, 'down' to move back one layer.",
+  inputSchema: zodSchema(reorderElementSchema),
+  execute: async (params) => params,
+});
+
+export const viewCanvasPreviewTool = tool({
+  description:
+    "View a preview image of the current canvas design. Use this to see the overall layout and visual result before or after making changes.",
+  inputSchema: zodSchema(viewCanvasPreviewSchema),
+});
+
+// ─── Context-dependent tool factories ──────────────────────────────
+
+interface AvailableScreenshot {
+  id: string;
+  imageUrl: string;
+  originalFilename: string;
+}
+
+export function createEditGenerateBackgroundTool(blobPrefix: string) {
+  return tool({
+    description:
+      "Generate a background image using AI and set it as the canvas background. Use this when the user wants an image background, not a solid color.",
+    inputSchema: zodSchema(generateBackgroundSchema),
+    execute: async ({ prompt: bgPrompt }) => {
+      const url = await generateAndUploadImage({
+        prompt: `Clean, minimal App Store screenshot background: ${bgPrompt}. Simple smooth gradient or solid color with subtle texture. Apple-style, elegant, not busy or complex. No text, no objects, no patterns. Just a clean backdrop.`,
+        filename: "background.png",
+        blobPath: `backgrounds/${blobPrefix}/${Date.now()}.png`,
+      });
+      return { url };
+    },
+  });
+}
+
+export function createIconGenerateBackgroundTool(blobPrefix: string) {
+  return tool({
+    description:
+      "Generate a background image using AI and set it as the canvas background.",
+    inputSchema: zodSchema(generateBackgroundSchema),
+    execute: async ({ prompt: bgPrompt }) => {
+      const result = await generateImage({
+        model: gateway.image(AI_CONFIG.iconImageModel),
+        prompt: `Clean, minimal icon background: ${bgPrompt}. Simple smooth gradient or solid color. Apple-style, elegant. No text, no objects, no patterns.`,
+        size: "1024x1024",
+      });
+      const buffer = Buffer.from(result.images[0].base64, "base64");
+      const file = new File([buffer], "background.png", {
+        type: "image/png",
+      });
+      const url = await uploadBlob(
+        file,
+        `icon-backgrounds/${blobPrefix}/${Date.now()}.png`,
+      );
+      return { url };
+    },
+  });
+}
+
+export function createEditAddImageElementTool(blobPrefix: string) {
+  return tool({
+    description:
+      "Generate an image using AI and add it as an image layer element on the canvas. Unlike generateBackground, this places the image as a moveable, resizable canvas element rather than the background.",
+    inputSchema: zodSchema(addImageElementSchema),
+    execute: async ({ prompt: imgPrompt, ...params }) => {
+      const url = await generateAndUploadImage({
+        prompt: `${imgPrompt}. Clean, polished image suitable for App Store marketing. No text.`,
+        filename: "image-layer.png",
+        blobPath: `images/${blobPrefix}/${Date.now()}.png`,
+      });
+      return {
+        ...params,
+        id: nanoid(),
+        type: "image" as const,
+        imageUrl: url,
+      };
+    },
+  });
+}
+
+export function createIconAddImageElementTool(blobPrefix: string) {
+  return tool({
+    description:
+      "Generate an image layer with a transparent background using AI, and add it to the canvas. Pass the concept image URL as referenceImageUrl to maintain visual consistency.",
+    inputSchema: zodSchema(addImageElementSchema),
+    execute: async ({ prompt: imgPrompt, referenceImageUrl, ...params }) => {
+      const promptText = `${imgPrompt}. STYLE: Flat 2D vector illustration. Solid fills, no textures, no gradients within shapes. Like an SVG icon or SF Symbol — pure geometric shapes with flat solid colors. Absolutely NO 3D, NO realistic rendering, NO shadows, NO highlights, NO reflections, NO skeuomorphism, NO perspective. Just flat colored shapes on a single plane.`;
+
+      let referenceBuffer: Buffer | undefined;
+      if (referenceImageUrl) {
+        const res = await fetch(referenceImageUrl);
+        referenceBuffer = Buffer.from(await res.arrayBuffer());
+      }
+
+      const result = await generateImage({
+        model: gateway.image(AI_CONFIG.iconImageModel),
+        prompt: referenceBuffer
+          ? { text: promptText, images: [referenceBuffer] }
+          : promptText,
+        size: "1024x1024",
+        providerOptions: {
+          openai: { background: "transparent", output_format: "png" },
+        },
+      });
+
+      const buffer = Buffer.from(result.images[0].base64, "base64");
+      const file = new File([buffer], "icon-layer.png", {
+        type: "image/png",
+      });
+      const url = await uploadBlob(
+        file,
+        `icon-layers/${blobPrefix}/${Date.now()}.png`,
+      );
+      return {
+        ...params,
+        id: nanoid(),
+        type: "image" as const,
+        imageUrl: url,
+      };
+    },
+  });
+}
+
+export function createImageEditAddImageElementTool(blobPrefix: string) {
+  return tool({
+    description:
+      "Generate an image layer using AI and add it to the canvas. Choose transparentBackground based on subject type (true for icons/objects, false for background scenes), and size based on the element's aspect ratio.",
+    inputSchema: zodSchema(addImageElementSchema),
+    execute: async ({
+      prompt: imgPrompt,
+      referenceImageUrl,
+      transparentBackground,
+      size,
+      ...params
+    }) => {
+      const promptText = `${imgPrompt}. High quality, detailed.`;
+
+      let referenceBuffer: Buffer | undefined;
+      if (referenceImageUrl) {
+        const res = await fetch(referenceImageUrl);
+        referenceBuffer = Buffer.from(await res.arrayBuffer());
+      }
+
+      const result = await generateImage({
+        model: gateway.image(AI_CONFIG.iconImageModel),
+        prompt: referenceBuffer
+          ? { text: promptText, images: [referenceBuffer] }
+          : promptText,
+        size: size ?? "1024x1024",
+        providerOptions: {
+          openai: {
+            background: transparentBackground ? "transparent" : "opaque",
+            output_format: "png",
+          },
+        },
+      });
+
+      const buffer = Buffer.from(result.images[0].base64, "base64");
+      const file = new File([buffer], "image-layer.png", {
+        type: "image/png",
+      });
+      const url = await uploadBlob(
+        file,
+        `image-gen-layers/${blobPrefix}/${Date.now()}.png`,
+      );
+      return {
+        ...params,
+        id: nanoid(),
+        type: "image" as const,
+        imageUrl: url,
+      };
+    },
+  });
+}
+
+export function createScreenshotTools(opts: {
+  screenshots: AvailableScreenshot[];
+  canvasState: CanvasState;
+}) {
+  const { screenshots, canvasState } = opts;
+
+  return {
+    addScreenshotElement: tool({
+      description:
+        "Add an uploaded screenshot image to the canvas. You MUST use a screenshotId from the available screenshots list. Scale the screenshot to fit nicely on the canvas (typically 60% of canvas size).",
+      inputSchema: zodSchema(addScreenshotElementSchema),
+      execute: async ({ screenshotId, ...params }) => {
+        const screenshot = screenshots.find((s) => s.id === screenshotId);
+        if (!screenshot) {
+          return {
+            error: `Screenshot with id "${screenshotId}" not found in available screenshots`,
+          };
+        }
+        return {
+          ...params,
+          id: nanoid(),
+          type: "screenshot" as const,
+          imageUrl: screenshot.imageUrl,
+          name: screenshot.originalFilename,
+        };
+      },
+    }),
+    changeScreenshotImage: tool({
+      description:
+        "Change which uploaded screenshot image a canvas screenshot element displays. Use this to swap a screenshot element to show a different uploaded screenshot.",
+      inputSchema: zodSchema(changeScreenshotImageSchema),
+      execute: async ({ id, screenshotId }) => {
+        const el = canvasState.elements.find(
+          (e) => e.id === id && e.type === "screenshot",
+        );
+        if (!el)
+          return { error: `Screenshot element "${id}" not found on canvas` };
+        const screenshot = screenshots.find((s) => s.id === screenshotId);
+        if (!screenshot) {
+          return {
+            error: `Screenshot with id "${screenshotId}" not found in available screenshots`,
+          };
+        }
+        return {
+          id,
+          imageUrl: screenshot.imageUrl,
+          name: screenshot.originalFilename,
+        };
+      },
+    }),
+    viewScreenshot: tool({
+      description:
+        "View the actual image of an uploaded screenshot. Use this to understand the app screenshot content before making design decisions. Pass a screenshotId from the available screenshots list.",
+      inputSchema: zodSchema(viewScreenshotSchema),
+      execute: async ({ screenshotId }) => {
+        const screenshot = screenshots.find((s) => s.id === screenshotId);
+        if (screenshot) {
+          return {
+            id: screenshot.id,
+            name: screenshot.originalFilename,
+            imageUrl: screenshot.imageUrl,
+          };
+        }
+        const el = canvasState.elements.find(
+          (e) => e.id === screenshotId && e.type === "screenshot",
+        );
+        if (!el || el.type !== "screenshot") {
+          return { error: "Screenshot not found" };
+        }
+        return {
+          id: el.id,
+          name: el.name ?? el.id,
+          imageUrl: el.imageUrl,
+        };
+      },
+    }),
+  };
+}
+
+export function createGenerateIconConceptTool(blobPrefix: string) {
+  return tool({
+    description:
+      "Generate a complete icon concept image as a visual reference. This does NOT add anything to the canvas — it only shows you the concept so you can then decompose it into layers using addImageElement. Always call this FIRST when creating a new icon. When the canvas already has layers, pass the canvasPreviewUrl from viewCanvasPreview so the concept builds on the existing design.",
+    inputSchema: zodSchema(generateIconConceptSchema),
+    execute: async ({ prompt: conceptPrompt, canvasPreviewUrl }) => {
+      const styleGuide = `Style: Flat 2D, minimal, Apple-style app icon. Bold solid colors, simple geometric shapes, clean vector look. Square format, no rounded corners. No text unless specified. NOT realistic, NOT 3D, NOT photographic.`;
+
+      let genResult;
+      if (canvasPreviewUrl) {
+        const res = await fetch(canvasPreviewUrl);
+        const imageBuffer = Buffer.from(await res.arrayBuffer());
+        genResult = await generateText({
+          model: gateway(AI_CONFIG.imageModel),
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "image", image: imageBuffer },
+                {
+                  type: "text",
+                  text: `This is the current canvas design. Based on this existing design, generate an improved/updated complete app icon concept: ${conceptPrompt}. ${styleGuide}`,
+                },
+              ],
+            },
+          ],
+        });
+      } else {
+        genResult = await generateText({
+          model: gateway(AI_CONFIG.imageModel),
+          prompt: `Design a complete app icon: ${conceptPrompt}. ${styleGuide}`,
+        });
+      }
+
+      const imageFile = genResult.files.find((f) =>
+        f.mediaType?.startsWith("image/"),
+      );
+      if (!imageFile) throw new Error("No image generated");
+      const buffer = Buffer.from(imageFile.uint8Array);
+      const file = new File([buffer], "icon-concept.png", {
+        type: "image/png",
+      });
+      const url = await uploadBlob(
+        file,
+        `icon-concepts/${blobPrefix}/${Date.now()}.png`,
+      );
+      return { url };
+    },
+  });
+}
