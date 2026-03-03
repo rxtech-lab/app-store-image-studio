@@ -716,10 +716,17 @@ export function CanvasEditor({
     }
   };
 
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === containerRef.current) {
+      onSelect(null);
+    }
+  };
+
   return (
     <div
       ref={containerRef}
       className="w-full h-full flex items-center justify-center relative"
+      onClick={handleContainerClick}
     >
       <div
         className="border rounded-lg overflow-hidden inline-block"

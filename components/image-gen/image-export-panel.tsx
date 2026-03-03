@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { hideTransformers } from "@/lib/canvas/export-utils";
 import { Download, Loader2, ChevronDown } from "lucide-react";
 
 type ImageFormat = "png" | "webp" | "jpeg";
@@ -36,6 +37,7 @@ export function ImageExportPanel({
 
     setExporting(true);
     try {
+      const restoreTransformers = hideTransformers(stage);
       const scale = stage.scaleX();
       const pixelRatio = 1 / scale;
 
@@ -45,10 +47,12 @@ export function ImageExportPanel({
       if (format === "png") {
         // PNG: use Konva directly
         const dataUrl = stage.toDataURL({ pixelRatio, mimeType });
+        restoreTransformers();
         triggerDownload(dataUrl, `${projectName}.${ext}`);
       } else {
         // WebP/JPEG: draw onto a canvas to apply quality
         const dataUrl = stage.toDataURL({ pixelRatio });
+        restoreTransformers();
         const img = new window.Image();
         img.src = dataUrl;
         await new Promise<void>((resolve) => {

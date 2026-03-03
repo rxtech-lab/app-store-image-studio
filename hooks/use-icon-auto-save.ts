@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type Konva from "konva";
 import type { CanvasState } from "@/lib/canvas/types";
+import { hideTransformers } from "@/lib/canvas/export-utils";
 import { saveIconCanvasState, saveIconThumbnail } from "@/actions/icon-projects";
 
 export function useIconAutoSave(
@@ -25,7 +26,9 @@ export function useIconAutoSave(
     try {
       await saveIconCanvasState(iconProjectId, latestStateRef.current);
       if (stageRef?.current) {
+        const restoreTransformers = hideTransformers(stageRef.current);
         const dataUrl = stageRef.current.toDataURL({ pixelRatio: 0.7 });
+        restoreTransformers();
         const res = await fetch(dataUrl);
         const blob = await res.blob();
         const file = new File([blob], `thumb-${iconProjectId}.png`, {
