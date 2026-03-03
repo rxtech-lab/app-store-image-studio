@@ -19,7 +19,9 @@ import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
 import { ExportButtons } from "@/components/editor/export-buttons";
 import { Button } from "@/components/ui/button";
 import { ScreenshotsDialog } from "@/components/editor/screenshots-dialog";
+import { SvgEditorDialog } from "@/components/editor/svg-editor-dialog";
 import { EditorLayout } from "@/components/editor/editor-layout";
+import type { SvgElement } from "@/lib/canvas/types";
 import { LayoutTemplate, Plus } from "lucide-react";
 
 const CanvasEditor = dynamic(
@@ -74,6 +76,7 @@ export function SectionEditorClient({
   const [showLayers, setShowLayers] = useState(true);
   const [showTemplates, setShowTemplates] = useState(true);
   const [isAddingImage, setIsAddingImage] = useState(false);
+  const [svgEditId, setSvgEditId] = useState<string | null>(null);
 
   const defaultState = getDefaultCanvasState(
     presetKey,
@@ -332,12 +335,14 @@ export function SectionEditorClient({
         selectedIds,
         onSelect: handleSelect,
         dispatch,
+        onSvgEdit: setSvgEditId,
         backgroundImageUrl: state.backgroundImageUrl,
         onRemoveBackgroundImage: () =>
           dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" }),
       }}
       selectedElement={selectedElement}
       dispatch={dispatch}
+      onSvgEdit={setSvgEditId}
     >
       <CanvasEditor
         state={state}
@@ -346,6 +351,7 @@ export function SectionEditorClient({
         onSelect={handleSelect}
         stageRef={stageRef}
         screenshots={screenshots}
+        onSvgEdit={setSvgEditId}
       />
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
         <AiPromptBar
@@ -358,6 +364,21 @@ export function SectionEditorClient({
           hasHistory={hasHistory}
         />
       </div>
+      {svgEditId && (() => {
+        const svgEl = state.elements.find((el) => el.id === svgEditId && el.type === "svg") as SvgElement | undefined;
+        if (!svgEl) return null;
+        return (
+          <SvgEditorDialog
+            open
+            onOpenChange={(open) => { if (!open) setSvgEditId(null); }}
+            svgContent={svgEl.svgContent}
+            onSave={(svgContent) => {
+              dispatch({ type: "UPDATE_ELEMENT", payload: { id: svgEditId, svgContent } });
+              setSvgEditId(null);
+            }}
+          />
+        );
+      })()}
     </EditorLayout>
   );
 }

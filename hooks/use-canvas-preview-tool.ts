@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { isToolUIPart, getToolName } from "ai";
 import type { UIMessage } from "ai";
-import { uploadCanvasPreview } from "@/actions/ai";
+import { uploadBlobClient } from "@/lib/blob-client";
 
 interface UseCanvasPreviewToolOptions {
   messages: UIMessage[];
@@ -48,7 +48,14 @@ export function useCanvasPreviewTool({
               output: { error: "Canvas preview not available" } as never,
             });
           } else {
-            uploadCanvasPreview(base64, projectIdRef.current ?? "")
+            const bytes = Uint8Array.from(atob(base64), (c) =>
+              c.charCodeAt(0),
+            );
+            const file = new File([bytes], "canvas-preview.png", {
+              type: "image/png",
+            });
+            const prefix = projectIdRef.current ?? "";
+            uploadBlobClient(file, `canvas-previews/${prefix}/${Date.now()}.png`)
               .then((url) => {
                 addToolOutput({
                   tool: "viewCanvasPreview" as never,

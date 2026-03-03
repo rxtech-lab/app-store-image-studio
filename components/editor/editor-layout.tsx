@@ -49,6 +49,7 @@ interface EditorLayoutProps {
   // Properties sidebar
   selectedElement?: CanvasElement | null;
   dispatch?: React.Dispatch<CanvasAction>;
+  onSvgEdit?: (elementId: string) => void;
 
   // Canvas viewport content
   children: React.ReactNode;
@@ -67,6 +68,7 @@ export function EditorLayout({
   layersProps,
   selectedElement,
   dispatch,
+  onSvgEdit,
   children,
 }: EditorLayoutProps) {
   const hasToolbar = toolbarLeft != null || toolbarRight != null;
@@ -169,6 +171,7 @@ export function EditorLayout({
                 <ElementProperties
                   element={selectedElement}
                   dispatch={dispatch}
+                  onSvgEdit={onSvgEdit}
                 />
               ) : (
                 <p className="text-xs text-muted-foreground text-center mt-8">

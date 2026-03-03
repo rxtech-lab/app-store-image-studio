@@ -40,6 +40,14 @@ export function summarizeCanvasState(canvasState: CanvasState): string {
         lines.push(
           `  ${prefix} [image]${label} id:"${el.id}" | opacity:${el.opacity} | ${pos}`,
         );
+      } else if (el.type === "svg") {
+        const preview =
+          el.svgContent.length > 60
+            ? el.svgContent.slice(0, 60) + "…"
+            : el.svgContent;
+        lines.push(
+          `  ${prefix} [svg]${label} id:"${el.id}" | "${preview}" | ${pos}`,
+        );
       } else if (el.type === "accent") {
         lines.push(
           `  ${prefix} [accent/${el.shape}]${label} id:"${el.id}" | fill:${el.fill} | ${pos}`,

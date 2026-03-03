@@ -13,9 +13,11 @@ import { useImageAutoSave } from "@/hooks/use-image-auto-save";
 import { useAiImageEdit } from "@/hooks/use-ai-image-edit";
 import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
 import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
+import { SvgEditorDialog } from "@/components/editor/svg-editor-dialog";
 import { ImageExportPanel } from "@/components/image-gen/image-export-panel";
 import { CanvasSizeControl } from "@/components/image-gen/canvas-size-control";
 import { EditorLayout } from "@/components/editor/editor-layout";
+import type { SvgElement } from "@/lib/canvas/types";
 
 const CanvasEditor = dynamic(
   () =>
@@ -46,6 +48,7 @@ export function ImageEditorClient({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showLayers, setShowLayers] = useState(true);
   const [isAddingImage, setIsAddingImage] = useState(false);
+  const [svgEditId, setSvgEditId] = useState<string | null>(null);
 
   const defaultState = getDefaultImageCanvasState(width, height);
   const { state, dispatch, undo, addText, addAccent } = useCanvasState(
@@ -262,12 +265,14 @@ export function ImageEditorClient({
         onSelect: handleSelect,
         onMultiSelect: handleMultiSelect,
         dispatch,
+        onSvgEdit: setSvgEditId,
         backgroundImageUrl: state.backgroundImageUrl,
         onRemoveBackgroundImage: () =>
           dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" }),
       }}
       selectedElement={selectedElement}
       dispatch={dispatch}
+      onSvgEdit={setSvgEditId}
     >
       <CanvasEditor
         state={state}
@@ -275,6 +280,7 @@ export function ImageEditorClient({
         selectedIds={selectedIds}
         onSelect={handleSelect}
         stageRef={stageRef}
+        onSvgEdit={setSvgEditId}
       />
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
         <AiPromptBar
@@ -287,6 +293,21 @@ export function ImageEditorClient({
           hasHistory={hasHistory}
         />
       </div>
+      {svgEditId && (() => {
+        const svgEl = state.elements.find((el) => el.id === svgEditId && el.type === "svg") as SvgElement | undefined;
+        if (!svgEl) return null;
+        return (
+          <SvgEditorDialog
+            open
+            onOpenChange={(open) => { if (!open) setSvgEditId(null); }}
+            svgContent={svgEl.svgContent}
+            onSave={(svgContent) => {
+              dispatch({ type: "UPDATE_ELEMENT", payload: { id: svgEditId, svgContent } });
+              setSvgEditId(null);
+            }}
+          />
+        );
+      })()}
     </EditorLayout>
   );
 }
