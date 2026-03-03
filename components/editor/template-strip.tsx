@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   createTemplate,
   deleteTemplate,
@@ -58,7 +58,7 @@ export function TemplateStrip({
 }: TemplateStripProps) {
   const [creating, setCreating] = useState(false);
 
-  const aspectRatio = useMemo(() => {
+  const presetAspectRatio = useMemo(() => {
     const { width, height } = resolvePresetDimensions(
       presetKey,
       customWidth,
@@ -66,6 +66,18 @@ export function TemplateStrip({
     );
     return `${width} / ${height}`;
   }, [presetKey, customWidth, customHeight]);
+
+  const getTemplateAspectRatio = useCallback(
+    (t: Template) => {
+      const w = t.canvasState?.width;
+      const h = t.canvasState?.height;
+      if (typeof w === "number" && typeof h === "number" && w > 0 && h > 0) {
+        return `${w} / ${h}`;
+      }
+      return presetAspectRatio;
+    },
+    [presetAspectRatio],
+  );
 
   const handleCreate = async () => {
     setCreating(true);
@@ -179,7 +191,7 @@ export function TemplateStrip({
                 {/* Thumbnail */}
                 <motion.div
                   className="relative w-full rounded-lg overflow-hidden mb-1.5 bg-muted"
-                  style={{ aspectRatio }}
+                  style={{ aspectRatio: getTemplateAspectRatio(t) }}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -235,7 +247,7 @@ export function TemplateStrip({
               "hover:bg-accent/40",
               "disabled:opacity-40 disabled:cursor-not-allowed",
             )}
-            style={{ aspectRatio, padding: "0.375rem" }}
+            style={{ aspectRatio: presetAspectRatio, padding: "0.375rem" }}
             onClick={handleCreate}
             disabled={creating}
           >

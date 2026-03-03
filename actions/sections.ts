@@ -110,3 +110,25 @@ export async function updateSectionPreset(
 
   revalidatePath(`/appstore-marketing-image/project/${projectId}`);
 }
+
+export async function updateSection(
+  sectionId: string,
+  projectId: string,
+  presetKey: PresetKey | "custom",
+  customWidth?: number | null,
+  customHeight?: number | null,
+) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await db
+    .update(screenshotSections)
+    .set({
+      presetKey,
+      customWidth: presetKey === "custom" ? (customWidth ?? null) : null,
+      customHeight: presetKey === "custom" ? (customHeight ?? null) : null,
+    })
+    .where(eq(screenshotSections.id, sectionId));
+
+  revalidatePath(`/appstore-marketing-image/project/${projectId}`);
+}

@@ -17,6 +17,7 @@ import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
 import { TemplateStrip } from "@/components/editor/template-strip";
 import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
 import { ExportButtons } from "@/components/editor/export-buttons";
+import { CanvasSizeControl } from "@/components/editor/canvas-size-control";
 import { Button } from "@/components/ui/button";
 import { ScreenshotsDialog } from "@/components/editor/screenshots-dialog";
 import { SvgEditorDialog } from "@/components/editor/svg-editor-dialog";
@@ -307,12 +308,24 @@ export function SectionEditorClient({
         </>
       }
       toolbarRight={
-        <ExportButtons
-          stageRef={stageRef}
-          canvasWidth={state.width}
-          canvasHeight={state.height}
-          projectName={projectName}
-        />
+        <>
+          <CanvasSizeControl
+            width={state.width}
+            height={state.height}
+            onChange={(w, h) =>
+              dispatch({
+                type: "SET_CANVAS_SIZE",
+                payload: { width: w, height: h },
+              })
+            }
+          />
+          <ExportButtons
+            stageRef={stageRef}
+            canvasWidth={state.width}
+            canvasHeight={state.height}
+            projectName={projectName}
+          />
+        </>
       }
       leftPanel={
         <TemplateStrip
@@ -343,8 +356,6 @@ export function SectionEditorClient({
       selectedElement={selectedElement}
       dispatch={dispatch}
       onSvgEdit={setSvgEditId}
-      canvasWidth={state.width}
-      canvasHeight={state.height}
     >
       <CanvasEditor
         state={state}

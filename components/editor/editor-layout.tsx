@@ -4,8 +4,6 @@ import Link from "next/link";
 import { ArrowLeft, ChevronDown, Loader2 } from "lucide-react";
 import { SidebarToggle } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,10 +51,6 @@ interface EditorLayoutProps {
   dispatch?: React.Dispatch<CanvasAction>;
   onSvgEdit?: (elementId: string) => void;
 
-  // Canvas size (shown when no element is selected)
-  canvasWidth?: number;
-  canvasHeight?: number;
-
   // Canvas viewport content
   children: React.ReactNode;
 }
@@ -75,8 +69,6 @@ export function EditorLayout({
   selectedElement,
   dispatch,
   onSvgEdit,
-  canvasWidth,
-  canvasHeight,
   children,
 }: EditorLayoutProps) {
   const hasToolbar = toolbarLeft != null || toolbarRight != null;
@@ -181,48 +173,6 @@ export function EditorLayout({
                   dispatch={dispatch}
                   onSvgEdit={onSvgEdit}
                 />
-              ) : canvasWidth != null && canvasHeight != null && dispatch ? (
-                <div className="space-y-4">
-                  <h3 className="font-medium text-sm">Canvas</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Width</Label>
-                      <Input
-                        type="number"
-                        value={canvasWidth}
-                        onChange={(e) => {
-                          const w = Number(e.target.value);
-                          if (w > 0) {
-                            dispatch({
-                              type: "SET_CANVAS_SIZE",
-                              payload: { width: w, height: canvasHeight },
-                            });
-                          }
-                        }}
-                        className="h-8"
-                        min={1}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Height</Label>
-                      <Input
-                        type="number"
-                        value={canvasHeight}
-                        onChange={(e) => {
-                          const h = Number(e.target.value);
-                          if (h > 0) {
-                            dispatch({
-                              type: "SET_CANVAS_SIZE",
-                              payload: { width: canvasWidth, height: h },
-                            });
-                          }
-                        }}
-                        className="h-8"
-                        min={1}
-                      />
-                    </div>
-                  </div>
-                </div>
               ) : (
                 <p className="text-xs text-muted-foreground text-center mt-8">
                   Select a layer to edit properties
