@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type Konva from "konva";
 import type { CanvasState } from "@/lib/canvas/types";
+import { hideTransformers } from "@/lib/canvas/export-utils";
 import { saveCanvasState, saveTemplateThumbnail } from "@/actions/templates";
 
 export function useAutoSave(
@@ -35,7 +36,9 @@ export function useAutoSave(
     try {
       await saveCanvasState(templateId, savedState);
       if (stageRef?.current) {
+        const restoreTransformers = hideTransformers(stageRef.current);
         const dataUrl = stageRef.current.toDataURL({ pixelRatio: 0.7 });
+        restoreTransformers();
         const url = await saveTemplateThumbnail(templateId, dataUrl);
         onThumbnailSavedRef.current?.(templateId, url);
       }

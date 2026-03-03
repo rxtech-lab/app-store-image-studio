@@ -11,6 +11,7 @@ import type { UIMessage } from "ai";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type Konva from "konva";
 import type { CanvasState, CanvasAction } from "@/lib/canvas/types";
+import { hideTransformers } from "@/lib/canvas/export-utils";
 import { saveIconAiMessages } from "@/actions/icon-projects";
 import { useCanvasPreviewTool } from "./use-canvas-preview-tool";
 
@@ -84,8 +85,10 @@ export function useAiIconEdit({
   const capturePreview = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return undefined;
+    const restoreTransformers = hideTransformers(stage);
     const scale = stage.scaleX();
     const dataUrl = stage.toDataURL({ pixelRatio: 1 / scale });
+    restoreTransformers();
     return dataUrl.replace(/^data:image\/\w+;base64,/, "");
   }, [stageRef]);
 

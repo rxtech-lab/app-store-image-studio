@@ -4,6 +4,7 @@ import { useState } from "react";
 import type Konva from "konva";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
+import { hideTransformers } from "@/lib/canvas/export-utils";
 import { Download, Loader2, FileArchive } from "lucide-react";
 
 interface ExportButtonsProps {
@@ -25,10 +26,12 @@ export function ExportButtons({
     const stage = stageRef.current;
     if (!stage) return;
 
+    const restoreTransformers = hideTransformers(stage);
     const scale = stage.scaleX();
     const pixelRatio = 1 / scale;
 
     const uri = stage.toDataURL({ pixelRatio });
+    restoreTransformers();
     const link = document.createElement("a");
     link.download = `${projectName}.png`;
     link.href = uri;
@@ -41,9 +44,11 @@ export function ExportButtons({
 
     setExporting(true);
     try {
+      const restoreTransformers = hideTransformers(stage);
       const scale = stage.scaleX();
       const pixelRatio = 1 / scale;
       const dataUrl = stage.toDataURL({ pixelRatio });
+      restoreTransformers();
       const base64 = dataUrl.split(",")[1];
 
       const zip = new JSZip();

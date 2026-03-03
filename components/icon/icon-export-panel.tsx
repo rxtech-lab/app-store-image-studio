@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { hideTransformers } from "@/lib/canvas/export-utils";
 import {
   Download,
   Loader2,
@@ -48,9 +49,11 @@ export function IconExportPanel({
   const getStageBase64 = () => {
     const stage = stageRef.current;
     if (!stage) return null;
+    const restoreTransformers = hideTransformers(stage);
     const scale = stage.scaleX();
     const pixelRatio = 1 / scale;
     const dataUrl = stage.toDataURL({ pixelRatio });
+    restoreTransformers();
     return dataUrl.split(",")[1];
   };
 
@@ -102,6 +105,7 @@ export function IconExportPanel({
     if (!stage || canvasState.elements.length === 0) return;
 
     setExportingLayers(true);
+    const restoreTransformers = hideTransformers(stage);
     try {
       const scale = stage.scaleX();
       const pixelRatio = 1 / scale;
@@ -159,6 +163,7 @@ export function IconExportPanel({
       for (const node of backgroundNodes) {
         node.visible(true);
       }
+      restoreTransformers();
       layer.draw();
 
       if (layerImages.length === 0) return;
@@ -177,6 +182,7 @@ export function IconExportPanel({
       link.click();
       URL.revokeObjectURL(url);
     } finally {
+      restoreTransformers();
       setExportingLayers(false);
     }
   };
