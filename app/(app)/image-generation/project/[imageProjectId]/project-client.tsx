@@ -10,6 +10,7 @@ import { getDefaultImageCanvasState } from "@/lib/canvas/defaults";
 import { uploadBackgroundImage } from "@/actions/templates";
 import { saveImageProjectAiMessages } from "@/actions/image-projects";
 import { useCanvasState } from "@/hooks/use-canvas-state";
+import { useClipboard } from "@/hooks/use-clipboard";
 import { useImageProjectAutoSave } from "@/hooks/use-image-project-auto-save";
 import { useAiImageEdit } from "@/hooks/use-ai-image-edit";
 import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
@@ -50,6 +51,8 @@ export function ProjectClient({ project }: ProjectClientProps) {
     project.canvasState ?? defaultState,
   );
 
+  const { copyElements, pasteElements } = useClipboard();
+
   const { isSaving, isSaved, saveNow } = useImageProjectAutoSave(
     project.id,
     state,
@@ -88,6 +91,19 @@ export function ProjectClient({ project }: ProjectClientProps) {
       } else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
         e.preventDefault();
         setSelectedIds(state.elements.map((el) => el.id));
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "c") {
+        e.preventDefault();
+        const toCopy = state.elements.filter((el) => selectedIds.includes(el.id));
+        copyElements(toCopy);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "v") {
+        e.preventDefault();
+        const pasted = pasteElements();
+        for (const el of pasted) {
+          dispatch({ type: "ADD_ELEMENT", payload: el });
+        }
+        if (pasted.length > 0) {
+          setSelectedIds(pasted.map((el) => el.id));
+        }
       } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "g") {
         e.preventDefault();
         if (
@@ -116,7 +132,7 @@ export function ProjectClient({ project }: ProjectClientProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIds, undo, dispatch, saveNow, state.elements]);
+  }, [selectedIds, undo, dispatch, saveNow, state.elements, copyElements, pasteElements]);
 
   const handleSaveMessages = useCallback(
     (messages: UIMessage[]) => {
@@ -257,6 +273,8 @@ export function ProjectClient({ project }: ProjectClientProps) {
         onMultiSelect: handleMultiSelect,
         dispatch,
         onSvgEdit: setSvgEditId,
+        onCopyElements: copyElements,
+        onPasteElements: pasteElements,
       }}
       selectedElement={selectedElement}
       dispatch={dispatch}
