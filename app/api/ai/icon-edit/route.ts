@@ -1,30 +1,25 @@
 import {
   streamText,
-  generateText,
-  generateImage,
-  tool,
-  zodSchema,
   convertToModelMessages,
   stepCountIs,
   type UIMessage,
 } from "ai";
 import { gateway } from "@ai-sdk/gateway";
-import { nanoid } from "nanoid";
 import { auth } from "@/lib/auth";
-import { uploadBlob } from "@/lib/blob";
 import { AI_CONFIG } from "@/lib/settings";
 import { summarizeCanvasState } from "@/lib/ai/summarize-canvas";
 import {
-  setBackgroundColorSchema,
-  generateBackgroundSchema,
-  updateElementSchema,
-  addTextElementSchema,
-  addAccentElementSchema,
-  removeElementSchema,
-  viewCanvasPreviewSchema,
-  reorderElementSchema,
-  addImageElementSchema,
-  generateIconConceptSchema,
+  setBackgroundColorTool,
+  updateElementTool,
+  addTextElementTool,
+  addAccentElementTool,
+  removeElementTool,
+  addSvgElementTool,
+  reorderElementTool,
+  viewCanvasPreviewTool,
+  createIconGenerateBackgroundTool,
+  createIconAddImageElementTool,
+  createGenerateIconConceptTool,
 } from "@/lib/ai/tools";
 import type { CanvasState } from "@/lib/canvas/types";
 
@@ -74,170 +69,17 @@ export async function POST(req: Request) {
     toolChoice: isFollowUp ? "auto" : "required",
     stopWhen: stepCountIs(20),
     tools: {
-      setBackgroundColor: tool({
-        description:
-          "Set the canvas background to a solid color. Use 'transparent' for a transparent background.",
-        inputSchema: zodSchema(setBackgroundColorSchema),
-        execute: async ({ color }) => ({ color }),
-      }),
-      generateBackground: tool({
-        description:
-          "Generate a background image using AI and set it as the canvas background.",
-        inputSchema: zodSchema(generateBackgroundSchema),
-        execute: async ({ prompt: bgPrompt }) => {
-          const result = await generateImage({
-            model: gateway.image(AI_CONFIG.iconImageModel),
-            prompt: `Clean, minimal icon background: ${bgPrompt}. Simple smooth gradient or solid color. Apple-style, elegant. No text, no objects, no patterns.`,
-            size: "1024x1024",
-          });
-          const buffer = Buffer.from(result.images[0].base64, "base64");
-          const file = new File([buffer], "background.png", {
-            type: "image/png",
-          });
-          const url = await uploadBlob(
-            file,
-            `icon-backgrounds/${blobPrefix}/${Date.now()}.png`,
-          );
-          return { url };
-        },
-      }),
-      updateElement: tool({
-        description:
-          "Update properties of an existing canvas element by its ID.",
-        inputSchema: zodSchema(updateElementSchema),
-        execute: async (params) => params,
-      }),
-      addTextElement: tool({
-        description: "Add a new text element to the canvas",
-        inputSchema: zodSchema(addTextElementSchema),
-        execute: async (params) => ({
-          ...params,
-          id: nanoid(),
-          type: "text" as const,
-        }),
-      }),
-      addAccentElement: tool({
-        description:
-          "Add a new accent/shape element to the canvas. Add descriptive name to the layer as well.",
-        inputSchema: zodSchema(addAccentElementSchema),
-        execute: async (params) => ({
-          ...params,
-          id: nanoid(),
-          type: "accent" as const,
-        }),
-      }),
-      removeElement: tool({
-        description: "Remove an element from the canvas by its ID",
-        inputSchema: zodSchema(removeElementSchema),
-        execute: async ({ id }) => ({ id }),
-      }),
-      addImageElement: tool({
-        description:
-          "Generate an image layer with a transparent background using AI, and add it to the canvas. Pass the concept image URL as referenceImageUrl to maintain visual consistency.",
-        inputSchema: zodSchema(addImageElementSchema),
-        execute: async ({
-          prompt: imgPrompt,
-          referenceImageUrl,
-          ...params
-        }) => {
-          const promptText = `${imgPrompt}. STYLE: Flat 2D vector illustration. Solid fills, no textures, no gradients within shapes. Like an SVG icon or SF Symbol — pure geometric shapes with flat solid colors. Absolutely NO 3D, NO realistic rendering, NO shadows, NO highlights, NO reflections, NO skeuomorphism, NO perspective. Just flat colored shapes on a single plane.`;
-
-          console.log("Generating image with prompt:", promptText);
-          let referenceBuffer: Buffer | undefined;
-          if (referenceImageUrl) {
-            const res = await fetch(referenceImageUrl);
-            referenceBuffer = Buffer.from(await res.arrayBuffer());
-          }
-
-          const result = await generateImage({
-            model: gateway.image(AI_CONFIG.iconImageModel),
-            prompt: referenceBuffer
-              ? { text: promptText, images: [referenceBuffer] }
-              : promptText,
-            size: "1024x1024",
-            providerOptions: {
-              openai: { background: "transparent", output_format: "png" },
-            },
-          });
-
-          const buffer = Buffer.from(result.images[0].base64, "base64");
-          const file = new File([buffer], "icon-layer.png", {
-            type: "image/png",
-          });
-          const url = await uploadBlob(
-            file,
-            `icon-layers/${blobPrefix}/${Date.now()}.png`,
-          );
-          return {
-            ...params,
-            id: nanoid(),
-            type: "image" as const,
-            imageUrl: url,
-          };
-        },
-      }),
-      reorderElement: tool({
-        description:
-          "Change the layer order of a canvas element. Use 'front' to bring to top, 'back' to send to bottom.",
-        inputSchema: zodSchema(reorderElementSchema),
-        execute: async (params) => params,
-      }),
-      generateIconConcept: tool({
-        description:
-          "Generate a complete icon concept image as a visual reference. This does NOT add anything to the canvas — it only shows you the concept so you can then decompose it into layers using addImageElement. Always call this FIRST when creating a new icon. When the canvas already has layers, pass the canvasPreviewUrl from viewCanvasPreview so the concept builds on the existing design.",
-        inputSchema: zodSchema(generateIconConceptSchema),
-        execute: async ({ prompt: conceptPrompt, canvasPreviewUrl }) => {
-          const styleGuide = `Style: Flat 2D, minimal, Apple-style app icon. Bold solid colors, simple geometric shapes, clean vector look. Square format, no rounded corners. No text unless specified. NOT realistic, NOT 3D, NOT photographic.`;
-
-          let genResult;
-          if (canvasPreviewUrl) {
-            const res = await fetch(canvasPreviewUrl);
-            const imageBuffer = Buffer.from(await res.arrayBuffer());
-            genResult = await generateText({
-              model: gateway(AI_CONFIG.imageModel),
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    {
-                      type: "image",
-                      image: imageBuffer,
-                    },
-                    {
-                      type: "text",
-                      text: `This is the current canvas design. Based on this existing design, generate an improved/updated complete app icon concept: ${conceptPrompt}. ${styleGuide}`,
-                    },
-                  ],
-                },
-              ],
-            });
-          } else {
-            genResult = await generateText({
-              model: gateway(AI_CONFIG.imageModel),
-              prompt: `Design a complete app icon: ${conceptPrompt}. ${styleGuide}`,
-            });
-          }
-
-          const imageFile = genResult.files.find((f) =>
-            f.mediaType?.startsWith("image/"),
-          );
-          if (!imageFile) throw new Error("No image generated");
-          const buffer = Buffer.from(imageFile.uint8Array);
-          const file = new File([buffer], "icon-concept.png", {
-            type: "image/png",
-          });
-          const url = await uploadBlob(
-            file,
-            `icon-concepts/${blobPrefix}/${Date.now()}.png`,
-          );
-          return { url };
-        },
-      }),
-      viewCanvasPreview: tool({
-        description:
-          "View a preview image of the current canvas design. Use this to verify the visual result.",
-        inputSchema: zodSchema(viewCanvasPreviewSchema),
-      }),
+      setBackgroundColor: setBackgroundColorTool,
+      generateBackground: createIconGenerateBackgroundTool(blobPrefix),
+      updateElement: updateElementTool,
+      addTextElement: addTextElementTool,
+      addAccentElement: addAccentElementTool,
+      removeElement: removeElementTool,
+      addSvgElement: addSvgElementTool,
+      addImageElement: createIconAddImageElementTool(blobPrefix),
+      reorderElement: reorderElementTool,
+      generateIconConcept: createGenerateIconConceptTool(blobPrefix),
+      viewCanvasPreview: viewCanvasPreviewTool,
     },
   });
 
@@ -281,6 +123,12 @@ LAYER BUILDING RULES:
 - NEVER create rounded corners, borders, or icon masks — Xcode/Android Studio handles that automatically.
 - Only use addTextElement when the user explicitly asks for text.
 
+SVG SUPPORT:
+- Use addSvgElement for simple geometric shapes, icons, badges, or styled text that don't need AI-generated imagery.
+- SVG content must include xmlns="http://www.w3.org/2000/svg" and a viewBox attribute.
+- Prefer addSvgElement over addAccentElement for shapes that need precise styling, gradients, or complex geometry.
+- For icon design, use addImageElement for main visual elements and addSvgElement for supplementary shapes/text.
+
 EXAMPLE — "storage" app icon:
 Phase 1: generateIconConcept("A storage app icon with a blue background, white hard drive symbol with a download arrow")
 Phase 2 (after seeing the concept):
@@ -297,7 +145,7 @@ ICON DESIGN PRINCIPLES:
 - Strong silhouettes, 2-3 colors maximum
 - Think SF Symbols, Apple icon design language
 
-Available element types: text, image (AI-generated with transparent background).
+Available element types: text, image (AI-generated with transparent background), svg (vector graphics).
 ${projectContext}
 Current canvas:
 ${summarizeCanvasState(canvasState)}

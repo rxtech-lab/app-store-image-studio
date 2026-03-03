@@ -51,6 +51,7 @@ export function AiPromptBar({
   const [prompt, setPrompt] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
+  const [lastSentPrompt, setLastSentPrompt] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,6 +107,7 @@ export function AiPromptBar({
     const urls = attachedImages
       .map((img) => img.url)
       .filter((u): u is string => u !== null);
+    setLastSentPrompt(prompt.trim());
     onSend(prompt.trim(), urls.length > 0 ? urls : undefined);
     setPrompt("");
     attachedImages.forEach((img) => URL.revokeObjectURL(img.preview));
@@ -118,6 +120,7 @@ export function AiPromptBar({
     }
     setExpanded(false);
     setPrompt("");
+    setLastSentPrompt("");
     attachedImages.forEach((img) => URL.revokeObjectURL(img.preview));
     setAttachedImages([]);
   };
@@ -181,6 +184,20 @@ export function AiPromptBar({
           </div>
         </div>
       )}
+      {/* User's sent prompt */}
+      <AnimatePresence>
+        {lastSentPrompt && isLoading && (
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-xs text-foreground font-medium leading-relaxed"
+          >
+            {lastSentPrompt}
+          </motion.p>
+        )}
+      </AnimatePresence>
       {/* Tool status labels */}
       <AnimatePresence>
         {statusText && (
