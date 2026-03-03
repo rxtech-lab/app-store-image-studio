@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-App Store Images Generator — a Next.js web app for creating App Store screenshots with a Konva-based canvas editor, AI-powered editing (Gemini 3.1 Flash via Vercel AI SDK), and multi-device preset support.
+App Studio — a Next.js web app for creating App Store screenshots with a Konva-based canvas editor, AI-powered editing (Gemini 3.1 Flash via Vercel AI SDK), and multi-device preset support.
 
 ## Commands
 

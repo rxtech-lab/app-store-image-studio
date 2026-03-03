@@ -15,7 +15,7 @@ export async function AppSidebar() {
           href="/dashboard"
           className="text-base font-semibold text-sidebar-foreground"
         >
-          App Store Images
+          App Studio
         </Link>
       </div>
 
