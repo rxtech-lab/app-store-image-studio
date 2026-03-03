@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   createTemplate,
   deleteTemplate,
   updateTemplateName,
 } from "@/actions/templates";
 import type { PresetKey } from "@/lib/settings";
+import { resolvePresetDimensions } from "@/lib/canvas/defaults";
 import type { CanvasState } from "@/lib/canvas/types";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, PanelLeftClose, PanelLeft } from "lucide-react";
@@ -56,6 +57,15 @@ export function TemplateStrip({
   onToggleCollapse,
 }: TemplateStripProps) {
   const [creating, setCreating] = useState(false);
+
+  const aspectRatio = useMemo(() => {
+    const { width, height } = resolvePresetDimensions(
+      presetKey,
+      customWidth,
+      customHeight,
+    );
+    return `${width} / ${height}`;
+  }, [presetKey, customWidth, customHeight]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -168,7 +178,8 @@ export function TemplateStrip({
 
                 {/* Thumbnail */}
                 <motion.div
-                  className="relative aspect-9/16 w-full rounded-lg overflow-hidden mb-1.5 bg-muted"
+                  className="relative w-full rounded-lg overflow-hidden mb-1.5 bg-muted"
+                  style={{ aspectRatio }}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -224,7 +235,7 @@ export function TemplateStrip({
               "hover:bg-accent/40",
               "disabled:opacity-40 disabled:cursor-not-allowed",
             )}
-            style={{ aspectRatio: "9/16", padding: "0.375rem" }}
+            style={{ aspectRatio, padding: "0.375rem" }}
             onClick={handleCreate}
             disabled={creating}
           >

@@ -111,6 +111,7 @@ export interface CanvasState {
 
 export type CanvasAction =
   | { type: "SET_STATE"; payload: CanvasState }
+  | { type: "SET_CANVAS_SIZE"; payload: { width: number; height: number } }
   | { type: "SET_BACKGROUND_COLOR"; payload: string }
   | { type: "SET_BACKGROUND_IMAGE"; payload: string | undefined }
   | { type: "ADD_ELEMENT"; payload: CanvasElement }

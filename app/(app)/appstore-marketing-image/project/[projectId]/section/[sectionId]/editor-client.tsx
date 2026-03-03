@@ -343,6 +343,8 @@ export function SectionEditorClient({
       selectedElement={selectedElement}
       dispatch={dispatch}
       onSvgEdit={setSvgEditId}
+      canvasWidth={state.width}
+      canvasHeight={state.height}
     >
       <CanvasEditor
         state={state}

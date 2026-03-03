@@ -27,6 +27,9 @@ function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
     case "SET_STATE":
       return action.payload;
 
+    case "SET_CANVAS_SIZE":
+      return { ...state, width: action.payload.width, height: action.payload.height };
+
     case "SET_BACKGROUND_COLOR":
       return { ...state, backgroundColor: action.payload };
 
