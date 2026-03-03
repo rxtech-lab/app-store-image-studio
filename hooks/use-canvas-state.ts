@@ -11,7 +11,7 @@ import { nanoid } from "nanoid";
 
 const HISTORY_LIMIT = 50;
 
-function deepCloneElement(el: CanvasElement): CanvasElement {
+export function deepCloneElement(el: CanvasElement): CanvasElement {
   if (el.type === "group") {
     return {
       ...el,

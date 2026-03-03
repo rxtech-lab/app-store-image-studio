@@ -26,6 +26,8 @@ import {
   Circle,
   RectangleHorizontal,
   Copy,
+  ClipboardCopy,
+  ClipboardPaste,
   Trash2,
   GripVertical,
   ImageOff,
@@ -94,6 +96,8 @@ export interface LayersPanelProps {
   backgroundImageUrl?: string;
   onRemoveBackgroundImage?: () => void;
   onSvgEdit?: (elementId: string) => void;
+  onCopyElements?: (elements: CanvasElement[]) => void;
+  onPasteElements?: () => CanvasElement[];
 }
 
 export function LayersPanel({
@@ -105,6 +109,8 @@ export function LayersPanel({
   backgroundImageUrl,
   onRemoveBackgroundImage,
   onSvgEdit,
+  onCopyElements,
+  onPasteElements,
 }: LayersPanelProps) {
   // Reverse for display: top layer (last in array) shown first
   const displayElements = [...elements].reverse();
@@ -196,6 +202,8 @@ export function LayersPanel({
                   }}
                   dispatch={dispatch}
                   onSvgEdit={onSvgEdit}
+                  onCopyElement={onCopyElements ? () => onCopyElements([el]) : undefined}
+                  onPasteElements={onPasteElements}
                 />
               ))}
             </AnimatePresence>
@@ -245,6 +253,8 @@ function LayerItem({
   onSelect,
   dispatch,
   onSvgEdit,
+  onCopyElement,
+  onPasteElements,
 }: {
   element: CanvasElement;
   isSelected: boolean;
@@ -252,6 +262,8 @@ function LayerItem({
   onSelect: (e?: React.MouseEvent) => void;
   dispatch: React.Dispatch<CanvasAction>;
   onSvgEdit?: (elementId: string) => void;
+  onCopyElement?: () => void;
+  onPasteElements?: () => CanvasElement[];
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -484,6 +496,27 @@ function LayerItem({
           <Copy className="h-3.5 w-3.5 mr-2" />
           Duplicate
         </ContextMenuItem>
+        {onCopyElement && (
+          <ContextMenuItem onClick={onCopyElement}>
+            <ClipboardCopy className="h-3.5 w-3.5 mr-2" />
+            Copy Layer
+            <span className="ml-auto text-xs text-muted-foreground">⌘C</span>
+          </ContextMenuItem>
+        )}
+        {onPasteElements && (
+          <ContextMenuItem
+            onClick={() => {
+              const pasted = onPasteElements();
+              for (const el of pasted) {
+                dispatch({ type: "ADD_ELEMENT", payload: el });
+              }
+            }}
+          >
+            <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
+            Paste Layer
+            <span className="ml-auto text-xs text-muted-foreground">⌘V</span>
+          </ContextMenuItem>
+        )}
         {selectedIds.length >= 2 && isSelected && (
           <>
             <ContextMenuSeparator />

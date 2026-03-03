@@ -10,6 +10,7 @@ import { nanoid } from "nanoid";
 import { getDefaultCanvasState } from "@/lib/canvas/defaults";
 import { uploadBackgroundImage } from "@/actions/templates";
 import { useCanvasState } from "@/hooks/use-canvas-state";
+import { useClipboard } from "@/hooks/use-clipboard";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { useAiEdit } from "@/hooks/use-ai-edit";
 import { createTemplate } from "@/actions/templates";
@@ -100,6 +101,8 @@ export function SectionEditorClient({
     );
   };
 
+  const { copyElements, pasteElements } = useClipboard();
+
   const { isSaving, isSaved, saveNow } = useAutoSave(
     activeTemplate?.id ?? "",
     state,
@@ -131,6 +134,19 @@ export function SectionEditorClient({
       } else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
         e.preventDefault();
         setSelectedIds(state.elements.map((el) => el.id));
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "c") {
+        e.preventDefault();
+        const toCopy = state.elements.filter((el) => selectedIds.includes(el.id));
+        copyElements(toCopy);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "v") {
+        e.preventDefault();
+        const pasted = pasteElements();
+        for (const el of pasted) {
+          dispatch({ type: "ADD_ELEMENT", payload: el });
+        }
+        if (pasted.length > 0) {
+          setSelectedIds(pasted.map((el) => el.id));
+        }
       } else if (e.key === "Backspace" || e.key === "Delete") {
         if (selectedIds.length > 0) {
           e.preventDefault();
@@ -144,7 +160,7 @@ export function SectionEditorClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIds, undo, dispatch, saveNow, state.elements]);
+  }, [selectedIds, undo, dispatch, saveNow, state.elements, copyElements, pasteElements]);
 
   const {
     sendEdit,
@@ -339,6 +355,8 @@ export function SectionEditorClient({
         backgroundImageUrl: state.backgroundImageUrl,
         onRemoveBackgroundImage: () =>
           dispatch({ type: "SET_BACKGROUND_IMAGE", payload: "" }),
+        onCopyElements: copyElements,
+        onPasteElements: pasteElements,
       }}
       selectedElement={selectedElement}
       dispatch={dispatch}
