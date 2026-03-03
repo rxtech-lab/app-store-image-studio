@@ -93,7 +93,7 @@ export function LandingPage() {
       >
         <div className="mx-auto max-w-6xl flex items-center justify-between px-6 h-14">
           <span className="text-base font-semibold tracking-tight">
-            App Store Image Studio
+            App Studio
           </span>
           <Button asChild size="sm">
             <Link href="/login">Sign In</Link>
@@ -182,7 +182,7 @@ export function LandingPage() {
               <div className="size-3 rounded-full bg-yellow-400/80" />
               <div className="size-3 rounded-full bg-green-400/80" />
               <span className="ml-2 text-xs text-muted-foreground">
-                App Store Image Studio
+                App Studio
               </span>
             </div>
             <div className="relative aspect-[16/9] bg-gradient-to-br from-primary/5 via-background to-primary/10 flex items-center justify-center">
@@ -467,7 +467,7 @@ export function LandingPage() {
       {/* ── Footer ─────────────────────────────────────── */}
       <footer className="border-t border-border/40 py-8 px-6">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>© {new Date().getFullYear()} App Store Image Studio</span>
+          <span>© {new Date().getFullYear()} App Studio</span>
           <span>Made for developers who ship.</span>
         </div>
       </footer>

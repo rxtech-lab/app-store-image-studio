@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "App Store Image Generator",
-  description: "Generate marketing images for the App Store",
+  title: "App Studio",
+  description: "Create App Store screenshots, icons, and marketing assets with AI",
 };
 
 export default function RootLayout({
