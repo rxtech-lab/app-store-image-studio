@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { IMAGE_PRESETS, type PresetKey } from "@/lib/settings";
 import { deleteSection } from "@/actions/sections";
@@ -22,6 +23,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { EditSectionDialog } from "./edit-section-dialog";
 
 interface SectionCardProps {
   section: {
@@ -50,6 +52,7 @@ function getDeviceCategory(presetKey: string) {
 }
 
 export function SectionCard({ section, index = 0 }: SectionCardProps) {
+  const [editOpen, setEditOpen] = useState(false);
   const isCustom = section.presetKey === "custom";
   const preset = isCustom
     ? null
@@ -116,14 +119,11 @@ export function SectionCard({ section, index = 0 }: SectionCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={`/appstore-marketing-image/project/${section.projectId}/section/${section.id}`}
-                    className="flex items-center"
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </Link>
+                <DropdownMenuItem
+                  onClick={() => setEditOpen(true)}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive"
@@ -146,6 +146,15 @@ export function SectionCard({ section, index = 0 }: SectionCardProps) {
           </div>
         </div>
       </div>
+      <EditSectionDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        sectionId={section.id}
+        projectId={section.projectId}
+        currentPresetKey={section.presetKey}
+        currentCustomWidth={section.customWidth}
+        currentCustomHeight={section.customHeight}
+      />
     </motion.div>
   );
 }
