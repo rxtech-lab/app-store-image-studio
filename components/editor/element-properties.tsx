@@ -186,6 +186,25 @@ export function ElementProperties({
           </div>
         </div>
       )}
+
+      {element.type === "svg" && (
+        <div className="space-y-1">
+          <Label className="text-xs">Opacity</Label>
+          <Input
+            type="number"
+            value={element.opacity}
+            onChange={(e) =>
+              update({
+                opacity: Math.min(1, Math.max(0, Number(e.target.value))),
+              })
+            }
+            className="h-8"
+            min={0}
+            max={1}
+            step={0.05}
+          />
+        </div>
+      )}
     </div>
   );
 }

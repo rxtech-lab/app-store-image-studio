@@ -12,6 +12,7 @@ import { nanoid } from "nanoid";
 import { auth } from "@/lib/auth";
 import { uploadBlob } from "@/lib/blob";
 import { AI_CONFIG } from "@/lib/settings";
+import { generateSvg } from "@/lib/ai/generate-svg";
 import { summarizeCanvasState } from "@/lib/ai/summarize-canvas";
 import {
   setBackgroundColorSchema,
@@ -22,6 +23,7 @@ import {
   viewCanvasPreviewSchema,
   reorderElementSchema,
   addImageElementSchema,
+  addSvgElementSchema,
 } from "@/lib/ai/tools";
 import type { CanvasState } from "@/lib/canvas/types";
 
@@ -141,6 +143,20 @@ export async function POST(req: Request) {
           };
         },
       }),
+      addSvgElement: tool({
+        description:
+          "Generate an SVG graphic from a description and add it as a scalable vector layer on the canvas. Use this for icons, logos, simple illustrations, decorative elements, badges, or geometric designs. SVGs are resolution-independent and render crisply at any size.",
+        inputSchema: zodSchema(addSvgElementSchema),
+        execute: async ({ prompt: svgPrompt, ...params }) => {
+          const svgString = await generateSvg(svgPrompt);
+          return {
+            ...params,
+            id: nanoid(),
+            type: "svg" as const,
+            svgString,
+          };
+        },
+      }),
       reorderElement: tool({
         description:
           "Change the layer order of a canvas element. Use 'front' to bring to top, 'back' to send to bottom.",
@@ -169,6 +185,7 @@ CRITICAL RULES:
 - For each change the user requests, call the appropriate tool immediately.
 - After completing all edits, call viewCanvasPreview to verify the visual result.
 - After all tool calls are complete, send a brief 1-sentence confirmation of what you changed.
+- Prefer generating svg and image generation over making multiple smaller accent elements to achieve the desired result, when possible.
 
 Available tools:
 - setBackgroundColor: Set solid background color
@@ -176,6 +193,7 @@ Available tools:
 - addTextElement: Add text to the canvas
 - addAccentElement: Add shapes (rectangles, circles)
 - addImageElement: Generate and add AI image layers — set transparentBackground=true for foreground subjects (icons, objects), false for scenes/backgrounds; set size based on element aspect ratio
+- addSvgElement: Generate and add SVG vector graphics (icons, logos, badges, decorative elements) — resolution-independent
 - removeElement: Remove elements
 - reorderElement: Change layer order
 - viewCanvasPreview: View current canvas state

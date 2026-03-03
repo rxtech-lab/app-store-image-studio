@@ -63,6 +63,19 @@ export interface ImageElement {
   cornerRadius: number;
 }
 
+export interface SvgElement {
+  id: string;
+  type: "svg";
+  name?: string;
+  svgString: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+}
+
 export interface GroupElement {
   id: string;
   type: "group";
@@ -80,6 +93,7 @@ export type CanvasElement =
   | TextElement
   | AccentElement
   | ImageElement
+  | SvgElement
   | GroupElement;
 
 export interface CanvasState {

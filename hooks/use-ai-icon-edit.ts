@@ -355,6 +355,7 @@ const TOOL_LABELS: Record<string, string> = {
   addTextElement: "Adding text",
   addAccentElement: "Adding shape",
   addImageElement: "Generating image layer",
+  addSvgElement: "Generating SVG",
   removeElement: "Removing element",
   viewCanvasPreview: "Viewing canvas",
   reorderElement: "Reordering layer",
@@ -392,6 +393,7 @@ function dispatchToolResult(
     case "addTextElement":
     case "addAccentElement":
     case "addImageElement":
+    case "addSvgElement":
       dispatch({
         type: "ADD_ELEMENT",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

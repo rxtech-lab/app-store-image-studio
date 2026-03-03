@@ -50,6 +50,8 @@ export const updateElementSchema = z.object({
   shadowOffsetY: z.number().optional(),
   // Image layer-specific
   opacity: z.number().min(0).max(1).optional(),
+  // SVG-specific
+  svgString: z.string().optional().describe("Updated SVG code for svg elements"),
   // Accent-specific
   shape: z.enum(["rect", "circle", "roundedRect"]).optional(),
 });
@@ -208,4 +210,22 @@ export const addImageElementSchema = z.object({
   rotation: z.number().default(0),
   opacity: z.number().min(0).max(1).default(1),
   cornerRadius: z.number().default(0),
+});
+
+export const addSvgElementSchema = z.object({
+  name: z
+    .string()
+    .describe("Descriptive name for this SVG layer")
+    .optional(),
+  prompt: z
+    .string()
+    .describe(
+      "Description of the SVG to generate. Be specific about shapes, colors, layout, and style.",
+    ),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  rotation: z.number().default(0),
+  opacity: z.number().min(0).max(1).default(1),
 });

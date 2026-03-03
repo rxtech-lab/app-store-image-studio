@@ -182,21 +182,12 @@ export function ImageEditorClient({
 
   const handleCanvasSizeChange = useCallback(
     (newWidth: number, newHeight: number) => {
-      const scaleX = newWidth / state.width;
-      const scaleY = newHeight / state.height;
       dispatch({
         type: "SET_STATE",
         payload: {
           ...state,
           width: newWidth,
           height: newHeight,
-          elements: state.elements.map((el) => ({
-            ...el,
-            x: el.x * scaleX,
-            y: el.y * scaleY,
-            width: el.width * scaleX,
-            height: el.height * scaleY,
-          })),
         },
       });
     },

@@ -279,6 +279,7 @@ const TOOL_LABELS: Record<string, string> = {
   addScreenshotElement: "Adding screenshot",
   changeScreenshotImage: "Changing screenshot",
   addImageElement: "Generating image layer",
+  addSvgElement: "Generating SVG",
   removeElement: "Removing element",
   viewScreenshot: "Viewing screenshot",
   viewCanvasPreview: "Viewing canvas",
@@ -317,6 +318,7 @@ function dispatchToolResult(
     case "addTextElement":
     case "addAccentElement":
     case "addImageElement":
+    case "addSvgElement":
       dispatch({
         type: "ADD_ELEMENT",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -44,6 +44,10 @@ export function summarizeCanvasState(canvasState: CanvasState): string {
         lines.push(
           `  ${prefix} [accent/${el.shape}]${label} id:"${el.id}" | fill:${el.fill} | ${pos}`,
         );
+      } else if (el.type === "svg") {
+        lines.push(
+          `  ${prefix} [svg]${label} id:"${el.id}" | opacity:${el.opacity} | ${pos}`,
+        );
       }
     });
   }

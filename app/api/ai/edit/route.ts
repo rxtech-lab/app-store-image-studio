@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { uploadBlob } from "@/lib/blob";
 import { AI_CONFIG } from "@/lib/settings";
 import { generateAndUploadImage } from "@/lib/ai/generate-image";
+import { generateSvg } from "@/lib/ai/generate-svg";
 import { summarizeCanvasState } from "@/lib/ai/summarize-canvas";
 import {
   setBackgroundColorSchema,
@@ -26,6 +27,7 @@ import {
   viewCanvasPreviewSchema,
   reorderElementSchema,
   addImageElementSchema,
+  addSvgElementSchema,
 } from "@/lib/ai/tools";
 import type { CanvasState } from "@/lib/canvas/types";
 
@@ -218,6 +220,20 @@ export async function POST(req: Request) {
           };
         },
       }),
+      addSvgElement: tool({
+        description:
+          "Generate an SVG graphic from a description and add it as a scalable vector layer on the canvas. Use this for icons, logos, simple illustrations, decorative elements, badges, or geometric designs. SVGs are resolution-independent and render crisply at any size.",
+        inputSchema: zodSchema(addSvgElementSchema),
+        execute: async ({ prompt: svgPrompt, ...params }) => {
+          const svgString = await generateSvg(svgPrompt);
+          return {
+            ...params,
+            id: nanoid(),
+            type: "svg" as const,
+            svgString,
+          };
+        },
+      }),
       viewCanvasPreview: tool({
         description:
           "View a preview image of the current canvas design. Use this to see the overall layout and visual result before or after making changes.",
@@ -256,7 +272,7 @@ CRITICAL RULES:
 - After completing all edits, call viewCanvasPreview if you need to verify the visual result.
 - After all tool calls are complete, send a brief 1-sentence confirmation of what you changed.
 
-Available element types on canvas: text, accent (shapes), screenshot (images).
+Available element types on canvas: text, accent (shapes), screenshot (images), svg (vector graphics).
 ${projectContext}
 Current canvas:
 ${summarizeCanvasState(canvasState)}
@@ -267,6 +283,7 @@ Screenshot tools:
 - Use changeScreenshotImage to swap which uploaded screenshot a canvas element shows.
 - Use viewScreenshot to see the actual image content of a screenshot before making design decisions.
 - Use addImageElement to generate an AI image and place it as a moveable image layer on the canvas (not the background).
+- Use addSvgElement to generate a scalable vector graphic (SVG) from a description — great for icons, logos, badges, decorative elements, or simple illustrations.
 
 Positioning guidelines:
 - Keep elements within canvas bounds (0,0) to (${canvasState.width},${canvasState.height})

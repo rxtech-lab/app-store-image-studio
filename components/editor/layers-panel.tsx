@@ -31,6 +31,7 @@ import {
   ImageOff,
   Wallpaper,
   Pencil,
+  Code2,
   FolderOpen,
   FolderClosed,
   Group,
@@ -54,6 +55,8 @@ function getElementDisplayName(el: CanvasElement): string {
           : "Rectangle";
     case "image":
       return "Image Layer";
+    case "svg":
+      return "SVG";
     case "group":
       return "Group";
   }
@@ -73,6 +76,8 @@ function getElementIcon(el: CanvasElement) {
           : Square;
     case "image":
       return Wallpaper;
+    case "svg":
+      return Code2;
     case "group":
       return FolderOpen;
   }

@@ -51,7 +51,7 @@ export function AiPromptBar({
   const [prompt, setPrompt] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,6 +59,14 @@ export function AiPromptBar({
       inputRef.current.focus();
     }
   }, [expanded]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [prompt]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -145,7 +153,7 @@ export function AiPromptBar({
   }
 
   return (
-    <div className="flex flex-col gap-1.5 bg-card border rounded-xl px-4 py-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 w-full max-w-2xl">
+    <div className="flex flex-col gap-1.5 bg-card border rounded-xl px-4 py-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 w-full lg:w-200">
       {/* Concept preview */}
       {conceptImage && (
         <div className="flex items-center gap-3 animate-in fade-in duration-200">
@@ -245,14 +253,17 @@ export function AiPromptBar({
         </div>
       )}
       {/* Input row */}
-      <div className="flex items-center gap-3">
-        <Sparkles className="h-5 w-5 text-primary shrink-0" />
-        <input
+      <div className="flex items-end gap-3">
+        <Sparkles className="h-5 w-5 text-primary shrink-0 mb-1" />
+        <textarea
           ref={inputRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSubmit();
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit();
+            }
             if (e.key === "Escape") handleClose();
           }}
           onPaste={(e) => {
@@ -266,8 +277,9 @@ export function AiPromptBar({
             }
           }}
           placeholder="Describe changes... e.g. 'Add headline: Download Now, blue gradient background'"
-          className="flex-1 min-w-0 bg-transparent text-base outline-none placeholder:text-muted-foreground w-96"
+          className="flex-1 min-w-0 bg-transparent text-base outline-none placeholder:text-muted-foreground resize-none overflow-hidden max-h-40"
           disabled={isLoading}
+          rows={2}
         />
         <input
           ref={fileInputRef}

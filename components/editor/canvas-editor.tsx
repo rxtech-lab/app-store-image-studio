@@ -19,6 +19,7 @@ import type {
   TextElement,
   AccentElement,
   ImageElement,
+  SvgElement,
   GroupElement,
   CanvasAction,
 } from "@/lib/canvas/types";
@@ -345,6 +346,68 @@ function ImageNode({
   );
 }
 
+function SvgNode({
+  el,
+  isSelected,
+  onSelect,
+  onChange,
+}: {
+  el: SvgElement;
+  isSelected: boolean;
+  onSelect: () => void;
+  onChange: (attrs: Partial<SvgElement>) => void;
+}) {
+  const shapeRef = useRef<Konva.Image>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+
+  const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(el.svgString)}`;
+  const image = useImage(dataUrl);
+
+  useEffect(() => {
+    if (isSelected && trRef.current && shapeRef.current) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer()?.batchDraw();
+    }
+  }, [isSelected]);
+
+  return (
+    <>
+      <Image
+        id={el.id}
+        ref={shapeRef}
+        image={image ?? undefined}
+        x={el.x}
+        y={el.y}
+        width={el.width}
+        height={el.height}
+        rotation={el.rotation}
+        opacity={el.opacity}
+        draggable
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => {
+          onChange({ x: e.target.x(), y: e.target.y() });
+        }}
+        onTransformEnd={() => {
+          const node = shapeRef.current!;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(20, node.width() * scaleX),
+            height: Math.max(20, node.height() * scaleY),
+            rotation: node.rotation(),
+          });
+        }}
+      />
+      {isSelected && <Transformer ref={trRef} rotateEnabled keepRatio />}
+    </>
+  );
+}
+
 function AccentNode({
   el,
   isSelected,
@@ -502,6 +565,16 @@ function GroupNode({
             case "image":
               return (
                 <ImageNode
+                  key={child.id}
+                  el={child}
+                  isSelected={false}
+                  onSelect={onSelect}
+                  onChange={() => {}}
+                />
+              );
+            case "svg":
+              return (
+                <SvgNode
                   key={child.id}
                   el={child}
                   isSelected={false}
@@ -714,6 +787,16 @@ export function CanvasEditor({
                 case "image":
                   return (
                     <ImageNode
+                      key={el.id}
+                      el={el}
+                      isSelected={selectedIds.includes(el.id)}
+                      onSelect={() => onSelect(el.id)}
+                      onChange={(attrs) => handleChange(el.id, attrs)}
+                    />
+                  );
+                case "svg":
+                  return (
+                    <SvgNode
                       key={el.id}
                       el={el}
                       isSelected={selectedIds.includes(el.id)}

@@ -13,6 +13,7 @@ import { nanoid } from "nanoid";
 import { auth } from "@/lib/auth";
 import { uploadBlob } from "@/lib/blob";
 import { AI_CONFIG } from "@/lib/settings";
+import { generateSvg } from "@/lib/ai/generate-svg";
 import { summarizeCanvasState } from "@/lib/ai/summarize-canvas";
 import {
   setBackgroundColorSchema,
@@ -24,6 +25,7 @@ import {
   viewCanvasPreviewSchema,
   reorderElementSchema,
   addImageElementSchema,
+  addSvgElementSchema,
   generateIconConceptSchema,
 } from "@/lib/ai/tools";
 import type { CanvasState } from "@/lib/canvas/types";
@@ -168,6 +170,20 @@ export async function POST(req: Request) {
         inputSchema: zodSchema(reorderElementSchema),
         execute: async (params) => params,
       }),
+      addSvgElement: tool({
+        description:
+          "Generate an SVG graphic from a description and add it as a scalable vector layer on the canvas. Use this for icons, logos, simple illustrations, decorative elements, badges, or geometric designs. SVGs are resolution-independent and render crisply at any size.",
+        inputSchema: zodSchema(addSvgElementSchema),
+        execute: async ({ prompt: svgPrompt, ...params }) => {
+          const svgString = await generateSvg(svgPrompt);
+          return {
+            ...params,
+            id: nanoid(),
+            type: "svg" as const,
+            svgString,
+          };
+        },
+      }),
       generateIconConcept: tool({
         description:
           "Generate a complete icon concept image as a visual reference. This does NOT add anything to the canvas — it only shows you the concept so you can then decompose it into layers using addImageElement. Always call this FIRST when creating a new icon. When the canvas already has layers, pass the canvasPreviewUrl from viewCanvasPreview so the concept builds on the existing design.",
@@ -283,7 +299,7 @@ ICON DESIGN PRINCIPLES:
 - Strong silhouettes, 2-3 colors maximum
 - Think SF Symbols, Apple icon design language
 
-Available element types: text, image (AI-generated with transparent background).
+Available element types: text, image (AI-generated with transparent background), svg (vector graphics).
 ${projectContext}
 Current canvas:
 ${summarizeCanvasState(canvasState)}
