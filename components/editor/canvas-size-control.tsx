@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { IMAGE_PRESETS, type PresetKey } from "@/lib/settings";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,6 +40,12 @@ export function CanvasSizeControl({
   const [customWidth, setCustomWidth] = useState(width);
   const [customHeight, setCustomHeight] = useState(height);
 
+  useEffect(() => {
+    setPreset(detectPreset(width, height));
+    setCustomWidth(width);
+    setCustomHeight(height);
+  }, [width, height]);
+
   const handlePresetChange = (value: PresetKey | "custom") => {
     setPreset(value);
     if (value !== "custom") {
@@ -49,13 +55,15 @@ export function CanvasSizeControl({
   };
 
   const handleCustomWidthChange = (w: number) => {
+    if (!Number.isFinite(w) || w <= 0) return;
     setCustomWidth(w);
-    if (w > 0) onChange(w, customHeight);
+    onChange(w, customHeight);
   };
 
   const handleCustomHeightChange = (h: number) => {
+    if (!Number.isFinite(h) || h <= 0) return;
     setCustomHeight(h);
-    if (h > 0) onChange(customWidth, h);
+    onChange(customWidth, h);
   };
 
   return (
@@ -79,9 +87,10 @@ export function CanvasSizeControl({
           <Input
             type="number"
             value={customWidth}
-            onChange={(e) =>
-              handleCustomWidthChange(Number(e.target.value) || 0)
-            }
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v) && v > 0) handleCustomWidthChange(v);
+            }}
             min={1}
             max={10000}
             className="h-7 w-16 text-xs text-center px-1"
@@ -90,9 +99,10 @@ export function CanvasSizeControl({
           <Input
             type="number"
             value={customHeight}
-            onChange={(e) =>
-              handleCustomHeightChange(Number(e.target.value) || 0)
-            }
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v) && v > 0) handleCustomHeightChange(v);
+            }}
             min={1}
             max={10000}
             className="h-7 w-16 text-xs text-center px-1"
