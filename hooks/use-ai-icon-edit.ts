@@ -272,12 +272,16 @@ export function useAiIconEdit({
   const hasPendingToolCalls =
     messages.length > 0 &&
     messages[messages.length - 1]?.role === "assistant" &&
-    messages[messages.length - 1].parts.some((part) => {
-      const p = part as unknown as Record<string, unknown>;
-      return p.type === "tool-invocation" && p.state === "input-available";
-    });
+    messages[messages.length - 1].parts.some(
+      (part) => isToolUIPart(part) && part.state === "input-available",
+    );
+  const willAutoSend =
+    status === "ready" && shouldAutoSend({ messages });
   const isLoading =
-    status === "submitted" || status === "streaming" || hasPendingToolCalls;
+    status === "submitted" ||
+    status === "streaming" ||
+    hasPendingToolCalls ||
+    willAutoSend;
   const wasLoadingRef = useRef(false);
   useEffect(() => {
     if (
