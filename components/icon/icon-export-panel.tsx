@@ -105,8 +105,8 @@ export function IconExportPanel({
     if (!stage || canvasState.elements.length === 0) return;
 
     setExportingLayers(true);
+    const restoreTransformers = hideTransformers(stage);
     try {
-      const restoreTransformers = hideTransformers(stage);
       const scale = stage.scaleX();
       const pixelRatio = 1 / scale;
       const layer = stage.getLayers()[0];
@@ -182,6 +182,7 @@ export function IconExportPanel({
       link.click();
       URL.revokeObjectURL(url);
     } finally {
+      restoreTransformers();
       setExportingLayers(false);
     }
   };
