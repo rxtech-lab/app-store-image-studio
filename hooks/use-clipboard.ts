@@ -25,7 +25,7 @@ export function useClipboard() {
         const clone = deepCloneElement(el);
         clone.x = el.x + 20;
         clone.y = el.y + 20;
-        if (el.name) clone.name = `${el.name} (copy)`;
+        if (clone.name) clone.name = `${clone.name} (copy)`;
         return clone;
       });
     } catch {
