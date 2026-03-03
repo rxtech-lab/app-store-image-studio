@@ -236,7 +236,15 @@ export function useAiEdit({
     }
   }, [setMessages]);
 
-  const isLoading = status === "submitted" || status === "streaming";
+  const hasPendingToolCalls =
+    messages.length > 0 &&
+    messages[messages.length - 1]?.role === "assistant" &&
+    messages[messages.length - 1].parts.some((part) => {
+      const p = part as unknown as Record<string, unknown>;
+      return p.type === "tool-invocation" && p.state === "input-available";
+    });
+  const isLoading =
+    status === "submitted" || status === "streaming" || hasPendingToolCalls;
   const wasLoadingRef = useRef(false);
   useEffect(() => {
     if (
@@ -278,6 +286,7 @@ const TOOL_LABELS: Record<string, string> = {
   addAccentElement: "Adding shape",
   addScreenshotElement: "Adding screenshot",
   changeScreenshotImage: "Changing screenshot",
+  addSvgElement: "Adding SVG",
   addImageElement: "Generating image layer",
   removeElement: "Removing element",
   viewScreenshot: "Viewing screenshot",
@@ -316,6 +325,7 @@ function dispatchToolResult(
       break;
     case "addTextElement":
     case "addAccentElement":
+    case "addSvgElement":
     case "addImageElement":
       dispatch({
         type: "ADD_ELEMENT",

@@ -19,6 +19,7 @@ import type {
   TextElement,
   AccentElement,
   ImageElement,
+  SvgElement,
   GroupElement,
   CanvasAction,
 } from "@/lib/canvas/types";
@@ -36,6 +37,7 @@ interface CanvasEditorProps {
   onSelect: (id: string | null) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
   screenshots?: Screenshot[];
+  onSvgEdit?: (elementId: string) => void;
 }
 
 function useContainerSize() {
@@ -345,6 +347,85 @@ function ImageNode({
   );
 }
 
+function useSvgImage(svgContent: string) {
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!svgContent) {
+      setImage(null);
+      return;
+    }
+    const blob = new Blob([svgContent], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const img = new window.Image();
+    img.src = url;
+    img.onload = () => setImage(img);
+    return () => URL.revokeObjectURL(url);
+  }, [svgContent]);
+  return image;
+}
+
+function SvgNode({
+  el,
+  isSelected,
+  onSelect,
+  onChange,
+  onDoubleClick,
+}: {
+  el: SvgElement;
+  isSelected: boolean;
+  onSelect: () => void;
+  onChange: (attrs: Partial<SvgElement>) => void;
+  onDoubleClick?: () => void;
+}) {
+  const shapeRef = useRef<Konva.Image>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+  const image = useSvgImage(el.svgContent);
+
+  useEffect(() => {
+    if (isSelected && trRef.current && shapeRef.current) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer()?.batchDraw();
+    }
+  }, [isSelected]);
+
+  return (
+    <>
+      <Image
+        id={el.id}
+        ref={shapeRef}
+        image={image ?? undefined}
+        x={el.x}
+        y={el.y}
+        width={el.width}
+        height={el.height}
+        rotation={el.rotation}
+        draggable
+        onClick={onSelect}
+        onTap={onSelect}
+        onDblClick={onDoubleClick}
+        onDragEnd={(e) => {
+          onChange({ x: e.target.x(), y: e.target.y() });
+        }}
+        onTransformEnd={() => {
+          const node = shapeRef.current!;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(20, node.width() * scaleX),
+            height: Math.max(20, node.height() * scaleY),
+            rotation: node.rotation(),
+          });
+        }}
+      />
+      {isSelected && <Transformer ref={trRef} rotateEnabled keepRatio />}
+    </>
+  );
+}
+
 function AccentNode({
   el,
   isSelected,
@@ -509,6 +590,16 @@ function GroupNode({
                   onChange={() => {}}
                 />
               );
+            case "svg":
+              return (
+                <SvgNode
+                  key={child.id}
+                  el={child}
+                  isSelected={false}
+                  onSelect={onSelect}
+                  onChange={() => {}}
+                />
+              );
             case "group":
               return (
                 <GroupNode
@@ -541,6 +632,7 @@ export function CanvasEditor({
   onSelect,
   stageRef,
   screenshots = [],
+  onSvgEdit,
 }: CanvasEditorProps) {
   const bgImage = useImage(state.backgroundImageUrl);
   const { containerRef, size: containerSize } = useContainerSize();
@@ -676,7 +768,7 @@ export function CanvasEditor({
             )}
 
             {/* Elements */}
-            {state.elements.map((el) => {
+            {state.elements.filter((el) => el.visible !== false).map((el) => {
               switch (el.type) {
                 case "screenshot":
                   return (
@@ -719,6 +811,17 @@ export function CanvasEditor({
                       isSelected={selectedIds.includes(el.id)}
                       onSelect={() => onSelect(el.id)}
                       onChange={(attrs) => handleChange(el.id, attrs)}
+                    />
+                  );
+                case "svg":
+                  return (
+                    <SvgNode
+                      key={el.id}
+                      el={el}
+                      isSelected={selectedIds.includes(el.id)}
+                      onSelect={() => onSelect(el.id)}
+                      onChange={(attrs) => handleChange(el.id, attrs)}
+                      onDoubleClick={() => onSvgEdit?.(el.id)}
                     />
                   );
                 case "group":

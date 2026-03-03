@@ -9,16 +9,18 @@ import { TextControls } from "./text-controls";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, ArrowUp, ArrowDown, Code } from "lucide-react";
 
 interface ElementPropertiesProps {
   element: CanvasElement;
   dispatch: React.Dispatch<CanvasAction>;
+  onSvgEdit?: (elementId: string) => void;
 }
 
 export function ElementProperties({
   element,
   dispatch,
+  onSvgEdit,
 }: ElementPropertiesProps) {
   const update = (attrs: Partial<CanvasElement>) => {
     dispatch({ type: "UPDATE_ELEMENT", payload: { id: element.id, ...attrs } });
@@ -185,6 +187,18 @@ export function ElementProperties({
             />
           </div>
         </div>
+      )}
+
+      {element.type === "svg" && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full gap-2"
+          onClick={() => onSvgEdit?.(element.id)}
+        >
+          <Code className="h-3.5 w-3.5" />
+          Edit SVG
+        </Button>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ export interface ScreenshotElement {
   id: string;
   type: "screenshot";
   name?: string;
+  visible?: boolean;
   imageUrl: string;
   x: number;
   y: number;
@@ -20,6 +21,7 @@ export interface TextElement {
   id: string;
   type: "text";
   name?: string;
+  visible?: boolean;
   text: string;
   fontSize: number;
   fontFamily: string;
@@ -39,6 +41,7 @@ export interface AccentElement {
   id: string;
   type: "accent";
   name?: string;
+  visible?: boolean;
   shape: "rect" | "circle" | "roundedRect";
   fill: string;
   cornerRadius: number;
@@ -53,6 +56,7 @@ export interface ImageElement {
   id: string;
   type: "image";
   name?: string;
+  visible?: boolean;
   imageUrl: string;
   x: number;
   y: number;
@@ -63,10 +67,24 @@ export interface ImageElement {
   cornerRadius: number;
 }
 
+export interface SvgElement {
+  id: string;
+  type: "svg";
+  name?: string;
+  visible?: boolean;
+  svgContent: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
 export interface GroupElement {
   id: string;
   type: "group";
   name?: string;
+  visible?: boolean;
   children: CanvasElement[];
   x: number;
   y: number;
@@ -80,6 +98,7 @@ export type CanvasElement =
   | TextElement
   | AccentElement
   | ImageElement
+  | SvgElement
   | GroupElement;
 
 export interface CanvasState {

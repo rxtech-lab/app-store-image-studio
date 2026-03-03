@@ -18,6 +18,7 @@ import {
   updateElementSchema,
   addTextElementSchema,
   addAccentElementSchema,
+  addSvgElementSchema,
   removeElementSchema,
   viewCanvasPreviewSchema,
   reorderElementSchema,
@@ -41,11 +42,25 @@ export async function POST(req: Request) {
   const systemPrompt = buildSystemPrompt(canvasState);
   const blobPrefix = imageId ?? session.user.id;
 
-  const messages = await convertToModelMessages(
-    uiMessages.filter(
+  // Remove incomplete tool invocations (no result) to prevent AI_MissingToolResultsError
+  const cleanedMessages = uiMessages
+    .filter(
       (m) => !(m.role === "user" && (!m.parts || m.parts.length === 0)),
-    ),
-  );
+    )
+    .map((msg) => {
+      if (msg.role !== "assistant") return msg;
+      const cleanParts = msg.parts.filter((part) => {
+        const p = part as unknown as Record<string, unknown>;
+        if (p.type === "tool-invocation" && p.state !== "output-available") {
+          return false;
+        }
+        return true;
+      });
+      return { ...msg, parts: cleanParts };
+    })
+    .filter((msg) => msg.parts.length > 0);
+
+  const messages = await convertToModelMessages(cleanedMessages);
 
   const isFollowUp = messages.some((m) => m.role === "tool");
 
@@ -141,6 +156,16 @@ export async function POST(req: Request) {
           };
         },
       }),
+      addSvgElement: tool({
+        description:
+          "Add an SVG element to the canvas. Use this for text with specific styling, icons, badges, logos, or any vector graphics. Prefer this over addTextElement when the user asks for SVG text or styled text elements.",
+        inputSchema: zodSchema(addSvgElementSchema),
+        execute: async (params) => ({
+          ...params,
+          id: nanoid(),
+          type: "svg" as const,
+        }),
+      }),
       reorderElement: tool({
         description:
           "Change the layer order of a canvas element. Use 'front' to bring to top, 'back' to send to bottom.",
@@ -172,13 +197,25 @@ CRITICAL RULES:
 
 Available tools:
 - setBackgroundColor: Set solid background color
-- updateElement: Update element properties (position, size, style)
-- addTextElement: Add text to the canvas
-- addAccentElement: Add shapes (rectangles, circles)
+- updateElement: Update element properties (position, size, style, svgContent)
+- addSvgElement: Add SVG vector graphics to the canvas. This is the PRIMARY tool for adding text, shapes, icons, badges, logos, decorative elements, and any vector content. Generate complete valid SVG markup.
+- addTextElement: Add a simple plain text element (only use when addSvgElement is not appropriate, e.g. for basic single-line labels)
+- addAccentElement: Add basic shapes — PREFER addSvgElement over this for any shape that needs precise styling, gradients, or complex geometry
 - addImageElement: Generate and add AI image layers — set transparentBackground=true for foreground subjects (icons, objects), false for scenes/backgrounds; set size based on element aspect ratio
 - removeElement: Remove elements
 - reorderElement: Change layer order
 - viewCanvasPreview: View current canvas state
+
+TOOL PREFERENCE:
+- ALWAYS prefer addSvgElement over addTextElement and addAccentElement. SVG gives you full control over styling, gradients, multiple shapes, and complex layouts in a single element.
+- Use addSvgElement for: text (styled, multi-line, or decorative), shapes (rectangles, circles, stars, badges, ribbons), icons, logos, and any vector content.
+- Only fall back to addTextElement for the simplest plain text, and addAccentElement for a trivial solid-color rectangle/circle.
+
+SVG GUIDELINES:
+- SVG content must include xmlns="http://www.w3.org/2000/svg" and a viewBox attribute matching the element's width/height.
+- Use <text> for text, <rect>/<circle>/<path>/<polygon> for shapes within the SVG.
+- Set appropriate fill colors, font-size, font-family, font-weight, and text-anchor in SVG attributes.
+- For centered text, use text-anchor="middle" with x at 50% of viewBox width.
 
 Current canvas:
 ${summarizeCanvasState(canvasState)}

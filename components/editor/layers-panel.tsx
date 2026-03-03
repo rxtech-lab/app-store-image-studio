@@ -37,6 +37,9 @@ import {
   Ungroup,
   ChevronRight,
   ChevronDown,
+  Code,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 function getElementDisplayName(el: CanvasElement): string {
@@ -54,6 +57,8 @@ function getElementDisplayName(el: CanvasElement): string {
           : "Rectangle";
     case "image":
       return "Image Layer";
+    case "svg":
+      return "SVG";
     case "group":
       return "Group";
   }
@@ -73,6 +78,8 @@ function getElementIcon(el: CanvasElement) {
           : Square;
     case "image":
       return Wallpaper;
+    case "svg":
+      return Code;
     case "group":
       return FolderOpen;
   }
@@ -86,6 +93,7 @@ export interface LayersPanelProps {
   dispatch: React.Dispatch<CanvasAction>;
   backgroundImageUrl?: string;
   onRemoveBackgroundImage?: () => void;
+  onSvgEdit?: (elementId: string) => void;
 }
 
 export function LayersPanel({
@@ -96,6 +104,7 @@ export function LayersPanel({
   dispatch,
   backgroundImageUrl,
   onRemoveBackgroundImage,
+  onSvgEdit,
 }: LayersPanelProps) {
   // Reverse for display: top layer (last in array) shown first
   const displayElements = [...elements].reverse();
@@ -186,6 +195,7 @@ export function LayersPanel({
                     }
                   }}
                   dispatch={dispatch}
+                  onSvgEdit={onSvgEdit}
                 />
               ))}
             </AnimatePresence>
@@ -234,12 +244,14 @@ function LayerItem({
   selectedIds,
   onSelect,
   dispatch,
+  onSvgEdit,
 }: {
   element: CanvasElement;
   isSelected: boolean;
   selectedIds: string[];
   onSelect: (e?: React.MouseEvent) => void;
   dispatch: React.Dispatch<CanvasAction>;
+  onSvgEdit?: (elementId: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -287,6 +299,7 @@ function LayerItem({
               "flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group/item",
               "hover:bg-muted/50",
               isSelected && "bg-primary/10 ring-1 ring-primary/30",
+              element.visible === false && "opacity-50",
             )}
             onClick={(e) => onSelect(e)}
             onDoubleClick={handleDoubleClick}
@@ -311,6 +324,28 @@ function LayerItem({
                 )}
               </button>
             ) : null}
+
+            {/* Visibility toggle */}
+            <button
+              type="button"
+              className="shrink-0 p-0 hover:text-foreground text-muted-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                dispatch({
+                  type: "UPDATE_ELEMENT",
+                  payload: {
+                    id: element.id,
+                    visible: element.visible === false ? true : false,
+                  },
+                });
+              }}
+            >
+              {element.visible === false ? (
+                <EyeOff className="h-3 w-3" />
+              ) : (
+                <Eye className="h-3 w-3" />
+              )}
+            </button>
 
             {/* Type icon */}
             <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -413,10 +448,34 @@ function LayerItem({
         </Reorder.Item>
       </ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem
+          onClick={() =>
+            dispatch({
+              type: "UPDATE_ELEMENT",
+              payload: {
+                id: element.id,
+                visible: element.visible === false ? true : false,
+              },
+            })
+          }
+        >
+          {element.visible === false ? (
+            <Eye className="h-3.5 w-3.5 mr-2" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5 mr-2" />
+          )}
+          {element.visible === false ? "Show" : "Hide"}
+        </ContextMenuItem>
         <ContextMenuItem onClick={handleDoubleClick}>
           <Pencil className="h-3.5 w-3.5 mr-2" />
           Rename
         </ContextMenuItem>
+        {element.type === "svg" && onSvgEdit && (
+          <ContextMenuItem onClick={() => onSvgEdit(element.id)}>
+            <Code className="h-3.5 w-3.5 mr-2" />
+            Edit SVG
+          </ContextMenuItem>
+        )}
         <ContextMenuItem
           onClick={() =>
             dispatch({ type: "DUPLICATE_ELEMENT", payload: element.id })

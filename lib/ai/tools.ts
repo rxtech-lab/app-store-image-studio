@@ -52,6 +52,8 @@ export const updateElementSchema = z.object({
   opacity: z.number().min(0).max(1).optional(),
   // Accent-specific
   shape: z.enum(["rect", "circle", "roundedRect"]).optional(),
+  // SVG-specific
+  svgContent: z.string().optional(),
 });
 
 export const addTextElementSchema = z.object({
@@ -173,6 +175,23 @@ export const generateIconConceptSchema = z.object({
       "URL of the current canvas preview image (from viewCanvasPreview result). Pass this when the canvas already has layers so the concept builds on the existing design.",
     )
     .optional(),
+});
+
+export const addSvgElementSchema = z.object({
+  name: z
+    .string()
+    .describe("Descriptive name for this SVG layer")
+    .optional(),
+  svgContent: z
+    .string()
+    .describe(
+      "Complete SVG markup string. Must be a valid SVG with xmlns attribute, e.g. '<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 100\">...</svg>'",
+    ),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  rotation: z.number().default(0),
 });
 
 export const addImageElementSchema = z.object({

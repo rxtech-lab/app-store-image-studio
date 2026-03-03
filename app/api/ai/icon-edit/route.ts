@@ -45,11 +45,25 @@ export async function POST(req: Request) {
   const systemPrompt = buildSystemPrompt(canvasState, projectDescription);
   const blobPrefix = projectId ?? session.user.id;
 
-  const messages = await convertToModelMessages(
-    uiMessages.filter(
+  // Remove incomplete tool invocations (no result) to prevent AI_MissingToolResultsError
+  const cleanedMessages = uiMessages
+    .filter(
       (m) => !(m.role === "user" && (!m.parts || m.parts.length === 0)),
-    ),
-  );
+    )
+    .map((msg) => {
+      if (msg.role !== "assistant") return msg;
+      const cleanParts = msg.parts.filter((part) => {
+        const p = part as unknown as Record<string, unknown>;
+        if (p.type === "tool-invocation" && p.state !== "output-available") {
+          return false;
+        }
+        return true;
+      });
+      return { ...msg, parts: cleanParts };
+    })
+    .filter((msg) => msg.parts.length > 0);
+
+  const messages = await convertToModelMessages(cleanedMessages);
 
   const isFollowUp = messages.some((m) => m.role === "tool");
 

@@ -14,9 +14,11 @@ import { useImageProjectAutoSave } from "@/hooks/use-image-project-auto-save";
 import { useAiImageEdit } from "@/hooks/use-ai-image-edit";
 import { CanvasToolbar } from "@/components/editor/canvas-toolbar";
 import { AiPromptBar } from "@/components/editor/ai-prompt-bar";
+import { SvgEditorDialog } from "@/components/editor/svg-editor-dialog";
 import { ImageExportPanel } from "@/components/image-gen/image-export-panel";
 import { CanvasSizeControl } from "@/components/image-gen/canvas-size-control";
 import { EditorLayout } from "@/components/editor/editor-layout";
+import type { SvgElement } from "@/lib/canvas/types";
 
 const CanvasEditor = dynamic(
   () =>
@@ -41,6 +43,7 @@ export function ProjectClient({ project }: ProjectClientProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showLayers, setShowLayers] = useState(true);
   const [isAddingImage, setIsAddingImage] = useState(false);
+  const [svgEditId, setSvgEditId] = useState<string | null>(null);
 
   const defaultState = getDefaultImageCanvasState(project.width, project.height);
   const { state, dispatch, undo, addText, addAccent } = useCanvasState(
@@ -188,21 +191,12 @@ export function ProjectClient({ project }: ProjectClientProps) {
 
   const handleCanvasSizeChange = useCallback(
     (newWidth: number, newHeight: number) => {
-      const scaleX = newWidth / state.width;
-      const scaleY = newHeight / state.height;
       dispatch({
         type: "SET_STATE",
         payload: {
           ...state,
           width: newWidth,
           height: newHeight,
-          elements: state.elements.map((el) => ({
-            ...el,
-            x: el.x * scaleX,
-            y: el.y * scaleY,
-            width: el.width * scaleX,
-            height: el.height * scaleY,
-          })),
         },
       });
     },
@@ -262,9 +256,11 @@ export function ProjectClient({ project }: ProjectClientProps) {
         onSelect: handleSelect,
         onMultiSelect: handleMultiSelect,
         dispatch,
+        onSvgEdit: setSvgEditId,
       }}
       selectedElement={selectedElement}
       dispatch={dispatch}
+      onSvgEdit={setSvgEditId}
     >
       <CanvasEditor
         state={state}
@@ -272,6 +268,7 @@ export function ProjectClient({ project }: ProjectClientProps) {
         selectedIds={selectedIds}
         onSelect={handleSelect}
         stageRef={stageRef}
+        onSvgEdit={setSvgEditId}
       />
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
         <AiPromptBar
@@ -284,6 +281,21 @@ export function ProjectClient({ project }: ProjectClientProps) {
           hasHistory={hasHistory}
         />
       </div>
+      {svgEditId && (() => {
+        const svgEl = state.elements.find((el) => el.id === svgEditId && el.type === "svg") as SvgElement | undefined;
+        if (!svgEl) return null;
+        return (
+          <SvgEditorDialog
+            open
+            onOpenChange={(open) => { if (!open) setSvgEditId(null); }}
+            svgContent={svgEl.svgContent}
+            onSave={(svgContent) => {
+              dispatch({ type: "UPDATE_ELEMENT", payload: { id: svgEditId, svgContent } });
+              setSvgEditId(null);
+            }}
+          />
+        );
+      })()}
     </EditorLayout>
   );
 }
