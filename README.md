@@ -2,7 +2,7 @@
 
 Your all-in-one App Store creative studio. Design marketing screenshots, generate app icons, and produce store assets — in minutes with AI and a powerful canvas editor.
 
-![App Studio Landing Page](https://github.com/user-attachments/assets/bfd82db0-7f0d-40df-8384-9907a4d5fc1c)
+![App Studio Logo](public/logo.png)
 
 ## Features
 
